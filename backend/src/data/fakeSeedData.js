@@ -2,27 +2,113 @@ function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function buildSnapshots(postId, days, base) {
+function simulateLinkedInElement(previous, organizationUrn) {
+  const uniqueImpressionsCount = previous.uniqueImpressionsCount + randomInt(10, 120);
+  const clickCount = previous.clickCount + randomInt(12, 180);
+  const likeCount = previous.likeCount + randomInt(1, 18);
+  const commentCount = previous.commentCount + randomInt(0, 6);
+  const shareCount = previous.shareCount + randomInt(0, 3);
+  const impressionCount = previous.impressionCount + randomInt(40, 420);
+
+  const engagement = Number(
+    ((likeCount + commentCount + shareCount + clickCount) / Math.max(impressionCount, 1)).toFixed(6)
+  );
+
+  return {
+    totalShareStatistics: {
+      uniqueImpressionsCount,
+      clickCount,
+      engagement,
+      likeCount,
+      commentCount,
+      shareCount,
+      commentMentionsCount: randomInt(0, 3),
+      impressionCount,
+      shareMentionsCount: randomInt(0, 3),
+    },
+    organizationalEntity: organizationUrn,
+  };
+}
+
+function simulateXMetrics(previous) {
+  const view_count = previous.view_count + randomInt(60, 500);
+  const like_count = previous.like_count + randomInt(1, 22);
+  const retweet_count = previous.retweet_count + randomInt(0, 5);
+  const reply_count = previous.reply_count + randomInt(0, 7);
+  const quote_count = previous.quote_count + randomInt(0, 3);
+  const bookmark_count = previous.bookmark_count + randomInt(0, 6);
+
+  return {
+    view_count,
+    like_count,
+    retweet_count,
+    reply_count,
+    quote_count,
+    bookmark_count,
+  };
+}
+
+function buildSnapshots(post, days) {
   const snapshots = [];
-  let likes = base.likes;
-  let comments = base.comments;
-  let impressions = base.impressions;
-  let savesOrBookmarks = base.savesOrBookmarks;
-  let shares = base.shares;
+
+  let linkedinState = {
+    uniqueImpressionsCount: post.baseline.uniqueImpressionsCount,
+    clickCount: post.baseline.clickCount,
+    likeCount: post.baseline.likeCount,
+    commentCount: post.baseline.commentCount,
+    shareCount: post.baseline.shareCount,
+    impressionCount: post.baseline.impressionCount,
+  };
+
+  let xState = {
+    view_count: post.baseline.view_count,
+    like_count: post.baseline.like_count,
+    retweet_count: post.baseline.retweet_count,
+    reply_count: post.baseline.reply_count,
+    quote_count: post.baseline.quote_count,
+    bookmark_count: post.baseline.bookmark_count,
+  };
 
   for (let day = days - 1; day >= 0; day -= 1) {
-    likes += randomInt(1, 25);
-    comments += randomInt(0, 8);
-    impressions += randomInt(20, 350);
-    savesOrBookmarks += randomInt(0, 6);
-    shares += randomInt(0, 4);
+    let likes = 0;
+    let comments = 0;
+    let impressions = 0;
+    let savesOrBookmarks = 0;
+    let shares = 0;
+
+    if (post.platform === 'linkedin') {
+      const linkedinElement = simulateLinkedInElement(linkedinState, post.organizationalEntity);
+      linkedinState = {
+        uniqueImpressionsCount: linkedinElement.totalShareStatistics.uniqueImpressionsCount,
+        clickCount: linkedinElement.totalShareStatistics.clickCount,
+        likeCount: linkedinElement.totalShareStatistics.likeCount,
+        commentCount: linkedinElement.totalShareStatistics.commentCount,
+        shareCount: linkedinElement.totalShareStatistics.shareCount,
+        impressionCount: linkedinElement.totalShareStatistics.impressionCount,
+      };
+
+      likes = linkedinElement.totalShareStatistics.likeCount;
+      comments = linkedinElement.totalShareStatistics.commentCount;
+      impressions = linkedinElement.totalShareStatistics.impressionCount;
+      shares = linkedinElement.totalShareStatistics.shareCount;
+      savesOrBookmarks = Math.max(0, Math.floor(linkedinElement.totalShareStatistics.clickCount * 0.06));
+    } else {
+      const xMetrics = simulateXMetrics(xState);
+      xState = xMetrics;
+
+      likes = xMetrics.like_count;
+      comments = xMetrics.reply_count;
+      impressions = xMetrics.view_count;
+      shares = xMetrics.retweet_count;
+      savesOrBookmarks = xMetrics.bookmark_count;
+    }
 
     const collectedAt = new Date();
     collectedAt.setUTCHours(0, 0, 0, 0);
     collectedAt.setUTCDate(collectedAt.getUTCDate() - day);
 
     snapshots.push({
-      post: postId,
+      post: post._id,
       collectedAt,
       likesCount: likes,
       commentsCount: comments,
@@ -37,21 +123,22 @@ function buildSnapshots(postId, days, base) {
 
 function generateFakePosts() {
   const now = new Date();
-
-  return [
+  const seedPosts = [
     {
       platform: 'linkedin',
       externalPostId: 'li-post-001',
       accountName: 'MigaLabs',
       content: 'Launching our social analytics beta this month.',
       isReply: false,
+      organizationalEntity: 'urn:li:organization:151279',
       publishedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 18),
       baseline: {
-        likes: 30,
-        comments: 3,
-        impressions: 300,
-        savesOrBookmarks: 4,
-        shares: 2,
+        uniqueImpressionsCount: 927,
+        clickCount: 10976,
+        likeCount: 31,
+        commentCount: 23,
+        shareCount: 2,
+        impressionCount: 34416,
       },
     },
     {
@@ -60,13 +147,15 @@ function generateFakePosts() {
       accountName: 'MigaLabs',
       content: 'How we measure engagement quality beyond likes.',
       isReply: true,
+      organizationalEntity: 'urn:li:organization:151279',
       publishedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 12),
       baseline: {
-        likes: 18,
-        comments: 2,
-        impressions: 220,
-        savesOrBookmarks: 3,
-        shares: 1,
+        uniqueImpressionsCount: 615,
+        clickCount: 7820,
+        likeCount: 22,
+        commentCount: 11,
+        shareCount: 1,
+        impressionCount: 21104,
       },
     },
     {
@@ -77,11 +166,12 @@ function generateFakePosts() {
       isReply: false,
       publishedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 9),
       baseline: {
-        likes: 25,
-        comments: 6,
-        impressions: 700,
-        savesOrBookmarks: 5,
-        shares: 3,
+        view_count: 12470,
+        like_count: 246,
+        retweet_count: 31,
+        reply_count: 17,
+        quote_count: 9,
+        bookmark_count: 41,
       },
     },
     {
@@ -92,20 +182,88 @@ function generateFakePosts() {
       isReply: true,
       publishedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 6),
       baseline: {
-        likes: 40,
-        comments: 8,
-        impressions: 920,
-        savesOrBookmarks: 9,
-        shares: 6,
+        view_count: 18820,
+        like_count: 392,
+        retweet_count: 46,
+        reply_count: 24,
+        quote_count: 14,
+        bookmark_count: 69,
       },
     },
   ];
+
+  const linkedinTopics = [
+    'Building a weekly analytics ritual for social teams.',
+    'What changed in our audience retention this quarter.',
+    'How to compare post performance with confidence intervals.',
+    'Reducing reporting noise with cleaner engagement signals.',
+    'A better way to monitor campaign quality in one dashboard.',
+    'How our team aligns content strategy with performance data.',
+    'Measuring post momentum instead of one-off spikes.',
+    'Practical benchmarks for B2B social media teams.',
+    'Why trend direction can matter more than raw totals.',
+    'A simple scoring model for content prioritization.',
+  ];
+
+  linkedinTopics.forEach((content, index) => {
+    const n = index + 3;
+    seedPosts.push({
+      platform: 'linkedin',
+      externalPostId: `li-post-${String(n).padStart(3, '0')}`,
+      accountName: 'MigaLabs',
+      content,
+      isReply: index % 3 === 0,
+      organizationalEntity: 'urn:li:organization:151279',
+      publishedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * (5 + index * 2)),
+      baseline: {
+        uniqueImpressionsCount: 520 + index * 85 + randomInt(0, 80),
+        clickCount: 5900 + index * 920 + randomInt(0, 700),
+        likeCount: 16 + index * 4 + randomInt(0, 8),
+        commentCount: 6 + index * 2 + randomInt(0, 5),
+        shareCount: 1 + Math.floor(index / 3) + randomInt(0, 2),
+        impressionCount: 16500 + index * 2150 + randomInt(0, 2200),
+      },
+    });
+  });
+
+  const xTopics = [
+    'We shipped faster campaign diagnostics for content teams.',
+    'A quick thread on engagement efficiency across channels.',
+    'Today we are comparing post decay curves by cohort.',
+    'How we identify resilient posts during low-reach weeks.',
+    'Our take on metric quality vs metric quantity.',
+    'The dashboard view we use before every content review.',
+    'Post velocity snapshots can reveal hidden winners early.',
+    'We tested reply-heavy posts against save-heavy posts.',
+    'Top performers are not always the most viewed posts.',
+    'A simple framework for social trend monitoring.',
+  ];
+
+  xTopics.forEach((content, index) => {
+    const n = index + 3;
+    seedPosts.push({
+      platform: 'x',
+      externalPostId: `x-post-${String(n).padStart(3, '0')}`,
+      accountName: 'MigaLabs',
+      content,
+      isReply: index % 4 === 1,
+      publishedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * (3 + index * 2)),
+      baseline: {
+        view_count: 9200 + index * 1700 + randomInt(0, 1300),
+        like_count: 140 + index * 26 + randomInt(0, 30),
+        retweet_count: 18 + index * 4 + randomInt(0, 6),
+        reply_count: 9 + index * 3 + randomInt(0, 5),
+        quote_count: 4 + index * 2 + randomInt(0, 4),
+        bookmark_count: 24 + index * 7 + randomInt(0, 10),
+      },
+    });
+  });
+
+  return seedPosts;
 }
 
 function generateSeedPayload(postDocuments, days = 14) {
-  const snapshots = postDocuments.flatMap((post) =>
-    buildSnapshots(post._id, days, post.baseline)
-  );
+  const snapshots = postDocuments.flatMap((post) => buildSnapshots(post, days));
 
   return snapshots;
 }

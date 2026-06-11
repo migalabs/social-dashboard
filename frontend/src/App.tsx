@@ -25,14 +25,6 @@ import {
 } from 'recharts'
 import './App.css'
 
-type Overview = {
-  likes: number
-  comments: number
-  impressions: number
-  savesOrBookmarks: number
-  shares: number
-}
-
 type Post = {
   _id: string
   platform: 'linkedin' | 'x'
@@ -65,15 +57,17 @@ type EnrichedPoint = TimeseriesPoint & {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000'
 const WEEKDAY_ORDER = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+type Page = 'insights' | 'linkedin' | 'x'
 
 function App() {
-  const [overview, setOverview] = useState<Overview | null>(null)
+  const [activePage, setActivePage] = useState<Page>('insights')
   const [posts, setPosts] = useState<Post[]>([])
-  const [series, setSeries] = useState<TimeseriesPoint[]>([])
   const [allSeriesByPost, setAllSeriesByPost] = useState<Record<string, TimeseriesPoint[]>>({})
-  const [selectedPostId, setSelectedPostId] = useState('')
+  const [selectedPostByPlatform, setSelectedPostByPlatform] = useState<Record<'linkedin' | 'x', string>>({
+    linkedin: '',
+    x: '',
+  })
   const [loading, setLoading] = useState(true)
-  const [loadingSeries, setLoadingSeries] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -82,24 +76,21 @@ function App() {
       setError('')
 
       try {
-        const [overviewResponse, postsResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/overview`),
-          fetch(`${API_BASE_URL}/api/posts`),
-        ])
+        const postsResponse = await fetch(`${API_BASE_URL}/api/posts`)
 
-        if (!overviewResponse.ok || !postsResponse.ok) {
+        if (!postsResponse.ok) {
           throw new Error('Unable to load dashboard data.')
         }
 
-        const overviewData = (await overviewResponse.json()) as Overview
         const postsData = (await postsResponse.json()) as Post[]
-
-        setOverview(overviewData)
         setPosts(postsData)
 
-        if (postsData.length > 0) {
-          setSelectedPostId(postsData[0]._id)
-        }
+        const linkedinFirst = postsData.find((post) => post.platform === 'linkedin')
+        const xFirst = postsData.find((post) => post.platform === 'x')
+        setSelectedPostByPlatform({
+          linkedin: linkedinFirst?._id ?? '',
+          x: xFirst?._id ?? '',
+        })
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : 'Unknown error')
       } finally {
@@ -112,7 +103,6 @@ function App() {
 
   useEffect(() => {
     if (posts.length === 0) {
-      setAllSeriesByPost({})
       return
     }
 
@@ -143,47 +133,6 @@ function App() {
     loadAllSeries()
   }, [posts])
 
-  useEffect(() => {
-    if (!selectedPostId) {
-      setSeries([])
-      return
-    }
-
-    const cachedSeries = allSeriesByPost[selectedPostId]
-    if (cachedSeries) {
-      setSeries(cachedSeries)
-      return
-    }
-
-    async function loadSeriesForSelectedPost() {
-      setLoadingSeries(true)
-      setError('')
-
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/posts/${selectedPostId}/timeseries`)
-
-        if (!response.ok) {
-          throw new Error('Unable to load post trend data.')
-        }
-
-        const data = (await response.json()) as TimeseriesPoint[]
-        setSeries(data)
-        setAllSeriesByPost((previous) => ({ ...previous, [selectedPostId]: data }))
-      } catch (seriesError) {
-        setError(seriesError instanceof Error ? seriesError.message : 'Unknown error')
-      } finally {
-        setLoadingSeries(false)
-      }
-    }
-
-    loadSeriesForSelectedPost()
-  }, [selectedPostId, allSeriesByPost])
-
-  const selectedPost = useMemo(
-    () => posts.find((post) => post._id === selectedPostId) ?? null,
-    [posts, selectedPostId]
-  )
-
   const formatNumber = (value: number) => new Intl.NumberFormat('en-US').format(value)
 
   const formatDate = (value: string) =>
@@ -192,47 +141,49 @@ function App() {
       day: 'numeric',
     })
 
-  const selectedSeries: EnrichedPoint[] = useMemo(
-    () =>
-      series.map((point) => {
-        const engagement = point.likes + point.comments + point.shares
-        const engagementRate =
-          point.impressions > 0 ? Number(((engagement / point.impressions) * 100).toFixed(2)) : 0
+  function enrichSeries(points: TimeseriesPoint[]): EnrichedPoint[] {
+    return points.map((point) => {
+      const engagement = point.likes + point.comments + point.shares
+      const engagementRate =
+        point.impressions > 0 ? Number(((engagement / point.impressions) * 100).toFixed(2)) : 0
 
-        return {
-          ...point,
-          createdAt: point.date,
-          likeCount: point.likes,
-          retweetCount: point.shares,
-          replyCount: point.comments,
-          quoteCount: Math.max(1, Math.floor(point.shares * 0.45)),
-          bookmarkCount: point.savesOrBookmarks,
-          viewCount: point.impressions,
-          engagementRate,
-        }
-      }),
-    [series]
-  )
-
-  const latestPoint = selectedSeries[selectedSeries.length - 1]
-
-  const overviewMix = useMemo(() => {
-    if (!overview) {
-      return []
-    }
-
-    return [
-      { name: 'Likes', value: overview.likes },
-      { name: 'Comments', value: overview.comments },
-      { name: 'Saves', value: overview.savesOrBookmarks },
-      { name: 'Shares', value: overview.shares },
-    ]
-  }, [overview])
+      return {
+        ...point,
+        createdAt: point.date,
+        likeCount: point.likes,
+        retweetCount: point.shares,
+        replyCount: point.comments,
+        quoteCount: Math.max(1, Math.floor(point.shares * 0.45)),
+        bookmarkCount: point.savesOrBookmarks,
+        viewCount: point.impressions,
+        engagementRate,
+      }
+    })
+  }
 
   const mixColors = ['#da6b61', '#73c476', '#5590f3', '#e1b75c']
 
+  const activePlatform = activePage === 'linkedin' || activePage === 'x' ? activePage : null
+
+  const platformPosts = useMemo(
+    () => (activePlatform ? posts.filter((post) => post.platform === activePlatform) : []),
+    [posts, activePlatform]
+  )
+
+  const selectedPostId = activePlatform ? selectedPostByPlatform[activePlatform] : ''
+  const selectedPost = useMemo(
+    () => platformPosts.find((post) => post._id === selectedPostId) ?? null,
+    [platformPosts, selectedPostId]
+  )
+
+  const selectedSeries = useMemo(
+    () => (selectedPostId ? enrichSeries(allSeriesByPost[selectedPostId] ?? []) : []),
+    [selectedPostId, allSeriesByPost]
+  )
+  const latestPoint = selectedSeries[selectedSeries.length - 1]
+
   const latestByPost = useMemo(() => {
-    return posts
+    return platformPosts
       .map((post) => {
         const postSeries = allSeriesByPost[post._id] ?? []
         const latest = postSeries[postSeries.length - 1]
@@ -242,17 +193,36 @@ function App() {
 
         return {
           ...post,
-          likeCount: latest.likes,
-          retweetCount: latest.shares,
-          replyCount: latest.comments,
-          quoteCount: Math.max(1, Math.floor(latest.shares * 0.45)),
-          bookmarkCount: latest.savesOrBookmarks,
-          viewCount: latest.impressions,
+          ...enrichSeries([latest])[0],
           createdAt: post.publishedAt,
         }
       })
       .filter((post): post is NonNullable<typeof post> => post !== null)
-  }, [posts, allSeriesByPost])
+  }, [platformPosts, allSeriesByPost])
+
+  const overviewForPage = useMemo(() => {
+    return latestByPost.reduce(
+      (acc, post) => {
+        acc.likes += post.likeCount
+        acc.comments += post.replyCount
+        acc.impressions += post.viewCount
+        acc.savesOrBookmarks += post.bookmarkCount
+        acc.shares += post.retweetCount
+        return acc
+      },
+      { likes: 0, comments: 0, impressions: 0, savesOrBookmarks: 0, shares: 0 }
+    )
+  }, [latestByPost])
+
+  const overviewMix = useMemo(
+    () => [
+      { name: 'Likes', value: overviewForPage.likes },
+      { name: 'Comments', value: overviewForPage.comments },
+      { name: 'Saves', value: overviewForPage.savesOrBookmarks },
+      { name: 'Shares', value: overviewForPage.shares },
+    ],
+    [overviewForPage]
+  )
 
   const postsByWeekday = useMemo(() => {
     const buckets = new Map<string, { sum: number; count: number }>()
@@ -318,7 +288,8 @@ function App() {
       }
     >()
 
-    Object.values(allSeriesByPost).forEach((postSeries) => {
+    platformPosts.forEach((post) => {
+      const postSeries = allSeriesByPost[post._id] ?? []
       postSeries.forEach((point) => {
         const date = new Date(point.date)
         const startOfYear = new Date(Date.UTC(date.getUTCFullYear(), 0, 1))
@@ -335,23 +306,24 @@ function App() {
           bookmarkCount: 0,
         }
 
-        existing.likeCount += point.likes
-        existing.retweetCount += point.shares
-        existing.replyCount += point.comments
-        existing.quoteCount += Math.max(1, Math.floor(point.shares * 0.45))
-        existing.bookmarkCount += point.savesOrBookmarks
+        const enriched = enrichSeries([point])[0]
+        existing.likeCount += enriched.likeCount
+        existing.retweetCount += enriched.retweetCount
+        existing.replyCount += enriched.replyCount
+        existing.quoteCount += enriched.quoteCount
+        existing.bookmarkCount += enriched.bookmarkCount
         weekMap.set(week, existing)
       })
     })
 
     return Array.from(weekMap.values()).sort((a, b) => a.week.localeCompare(b.week))
-  }, [allSeriesByPost])
+  }, [platformPosts, allSeriesByPost])
 
   const replyVsOriginal = useMemo(() => {
     let replies = 0
     let originals = 0
 
-    posts.forEach((post) => {
+    platformPosts.forEach((post) => {
       if (post.isReply) {
         replies += 1
       } else {
@@ -363,7 +335,157 @@ function App() {
       { name: 'Replies', value: replies },
       { name: 'Original Posts', value: originals },
     ]
-  }, [posts])
+  }, [platformPosts])
+
+  const linkedinCardMetrics = useMemo(() => {
+    const clicks = Math.max(0, Math.round(overviewForPage.impressions * 0.07))
+    const engagementRate =
+      overviewForPage.impressions > 0
+        ? ((overviewForPage.likes + overviewForPage.comments + overviewForPage.shares) /
+            overviewForPage.impressions) *
+          100
+        : 0
+    const followerGrowth = Math.max(0, Math.round(platformPosts.length * 14 + overviewForPage.comments * 0.65))
+
+    let minTimestamp = Number.POSITIVE_INFINITY
+    let maxTimestamp = Number.NEGATIVE_INFINITY
+
+    platformPosts.forEach((post) => {
+      const series = allSeriesByPost[post._id] ?? []
+      series.forEach((point) => {
+        const timestamp = new Date(point.date).getTime()
+        if (!Number.isNaN(timestamp)) {
+          minTimestamp = Math.min(minTimestamp, timestamp)
+          maxTimestamp = Math.max(maxTimestamp, timestamp)
+        }
+      })
+    })
+
+    const followerGrowthDays =
+      Number.isFinite(minTimestamp) && Number.isFinite(maxTimestamp)
+        ? Math.max(1, Math.round((maxTimestamp - minTimestamp) / 86400000) + 1)
+        : 0
+
+    const topPost = latestByPost.reduce(
+      (best, post) => {
+        const score = post.likeCount + post.replyCount + post.retweetCount * 1.2
+        if (score > best.score) {
+          return { title: post.content, score }
+        }
+        return best
+      },
+      { title: 'No post available', score: -1 }
+    )
+
+    return {
+      impressions: overviewForPage.impressions,
+      engagementRate,
+      followerGrowth,
+      followerGrowthDays,
+      clicks,
+      topPostTitle: topPost.title,
+    }
+  }, [overviewForPage, platformPosts, allSeriesByPost, latestByPost])
+
+  const xCardMetrics = useMemo(() => {
+    const engagement =
+      overviewForPage.likes +
+      overviewForPage.comments +
+      overviewForPage.shares +
+      overviewForPage.savesOrBookmarks
+    const engagementRate =
+      overviewForPage.impressions > 0 ? (engagement / overviewForPage.impressions) * 100 : 0
+
+    return {
+      impressions: overviewForPage.impressions,
+      engagementRate,
+      reposts: overviewForPage.shares,
+      likes: overviewForPage.likes,
+      profileVisits: null as number | null,
+    }
+  }, [overviewForPage])
+
+  const insightsSummary = useMemo(() => {
+    const analyzed = posts
+      .map((post) => {
+        const rawSeries = allSeriesByPost[post._id] ?? []
+        const enriched = enrichSeries(rawSeries)
+        if (enriched.length === 0) {
+          return null
+        }
+
+        const first = enriched[0]
+        const last = enriched[enriched.length - 1]
+        const firstEngagement = first.likeCount + first.replyCount + first.retweetCount
+        const lastEngagement = last.likeCount + last.replyCount + last.retweetCount
+
+        return {
+          post,
+          first,
+          last,
+          engagementChange: Math.abs(lastEngagement - firstEngagement),
+          currentEngagement: lastEngagement,
+        }
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null)
+
+    const totals = analyzed.reduce(
+      (acc, item) => {
+        acc.impressions += item.last.viewCount
+        acc.engagement += item.currentEngagement
+        return acc
+      },
+      { impressions: 0, engagement: 0 }
+    )
+
+    const kpiEngagementRate =
+      totals.impressions > 0 ? (totals.engagement / totals.impressions) * 100 : 0
+
+    const topPost = analyzed.reduce(
+      (best, item) =>
+        item.currentEngagement > best.currentEngagement
+          ? {
+              title: item.post.content,
+              platform: item.post.platform,
+              currentEngagement: item.currentEngagement,
+              content: item.post.content,
+            }
+          : best,
+      {
+        title: 'No post available',
+        platform: 'linkedin',
+        currentEngagement: 0,
+        content: 'No data available',
+      }
+    )
+
+    const worstPost = analyzed.reduce(
+      (worst, item) =>
+        item.engagementChange < worst.engagementChange
+          ? {
+              title: item.post.content,
+              platform: item.post.platform,
+              engagementChange: item.engagementChange,
+              content: item.post.content,
+            }
+          : worst,
+      {
+        title: 'No post available',
+        platform: 'linkedin',
+        engagementChange: Number.POSITIVE_INFINITY,
+        content: 'No data available',
+      }
+    )
+
+    return {
+      kpiEngagementRate,
+      topPost,
+      worstPost:
+        worstPost.engagementChange === Number.POSITIVE_INFINITY
+          ? { ...worstPost, engagementChange: 0 }
+          : worstPost,
+    }
+  }, [posts, allSeriesByPost])
 
   if (loading) {
     return <main className="app-shell">Loading dashboard...</main>
@@ -373,40 +495,132 @@ function App() {
     return <main className="app-shell">Error: {error}</main>
   }
 
-  return (
-    <main className="app-shell">
+  const tabButton = (label: string, page: Page) => (
+    <button
+      type="button"
+      className={`nav-link ${activePage === page ? 'is-active' : ''}`}
+      onClick={() => setActivePage(page)}
+    >
+      {label}
+    </button>
+  )
+
+  const renderInsights = () => (
+    <>
       <header className="hero-panel">
         <p className="eyebrow">MigaLabs Social Media</p>
-        <h1>Social Media Statistics</h1>
-        <p className="hero-copy">
-          This is currently just a whole bunch of mock data for LinkedIn + X.
-        </p>
+        <h1>Insights</h1>
+        <p className="hero-copy">Cross-platform summary with key performance indicators and post-level signal quality.</p>
       </header>
 
-      <section className="overview-grid" aria-label="Overview metrics">
+      <section className="overview-grid" aria-label="Insights summary cards">
         <article className="metric-card">
-          <h2>Total Likes</h2>
-          <p>{formatNumber(overview?.likes ?? 0)}</p>
+          <h2>KPI</h2>
+          <p>{insightsSummary.kpiEngagementRate.toFixed(2)}%</p>
+          <small className="metric-subtext">Overall engagement rate</small>
         </article>
-        <article className="metric-card">
-          <h2>Total Comments</h2>
-          <p>{formatNumber(overview?.comments ?? 0)}</p>
+      </section>
+
+      <section className="content-grid insights-grid">
+        <article className="panel">
+          <div className="panel-title-row">
+            <h2>Top Post</h2>
+            <span>{insightsSummary.topPost.platform.toUpperCase()}</span>
+          </div>
+          <p className="selected-content">{insightsSummary.topPost.content}</p>
         </article>
-        <article className="metric-card">
-          <h2>Total Impressions</h2>
-          <p>{formatNumber(overview?.impressions ?? 0)}</p>
+
+        <article className="panel">
+          <div className="panel-title-row">
+            <h2>Worst Post</h2>
+            <span>{insightsSummary.worstPost.platform.toUpperCase()}</span>
+          </div>
+          <p className="selected-content">{insightsSummary.worstPost.content}</p>
         </article>
-        <article className="metric-card">
-          <h2>Saves + Bookmarks</h2>
-          <p>{formatNumber(overview?.savesOrBookmarks ?? 0)}</p>
+
+        <article className="panel insights-trends-placeholder">
+          <div className="panel-title-row">
+            <h2>Tracking Trends</h2>
+            <span>coming soon</span>
+          </div>
+          <p className="selected-content">This section will chart rolling movement across LinkedIn and X over time.</p>
         </article>
+      </section>
+    </>
+  )
+
+  const renderPlatformPage = () => (
+    <>
+      <header className="hero-panel">
+        <p className="eyebrow">MigaLabs Social Media</p>
+        <h1>{activePlatform === 'linkedin' ? 'LinkedIn Analytics' : 'X Analytics'}</h1>
+        <p className="hero-copy">Platform-specific mock analytics feed with charted trends and engagement composition.</p>
+      </header>
+
+      <section
+        className={`overview-grid ${activePlatform === 'x' ? 'x-overview-grid' : ''}`}
+        aria-label="Overview metrics"
+      >
+        {activePlatform === 'linkedin' ? (
+          <>
+            <article className="metric-card">
+              <h2>Impressions</h2>
+              <p>{formatNumber(linkedinCardMetrics.impressions)}</p>
+            </article>
+            <article className="metric-card">
+              <h2>Engagement Rate</h2>
+              <p>{linkedinCardMetrics.engagementRate.toFixed(2)}%</p>
+            </article>
+            <article className="metric-card">
+              <h2>Follower Growth</h2>
+              <p>+{formatNumber(linkedinCardMetrics.followerGrowth)}</p>
+              <small className="metric-subtext">
+                {linkedinCardMetrics.followerGrowthDays > 0
+                  ? `Last ${linkedinCardMetrics.followerGrowthDays} days`
+                  : 'Time window unavailable'}
+              </small>
+            </article>
+            <article className="metric-card">
+              <h2>Clicks</h2>
+              <p>{formatNumber(linkedinCardMetrics.clicks)}</p>
+            </article>
+            <article className="metric-card">
+              <h2>Top Post</h2>
+              <p className="metric-post-title">{linkedinCardMetrics.topPostTitle}</p>
+            </article>
+          </>
+        ) : (
+          <>
+            <article className="metric-card">
+              <h2>Impressions</h2>
+              <p>{formatNumber(xCardMetrics.impressions)}</p>
+            </article>
+            <article className="metric-card">
+              <h2>Engagement Rate</h2>
+              <p>{xCardMetrics.engagementRate.toFixed(2)}%</p>
+            </article>
+            <article className="metric-card">
+              <h2>Repost</h2>
+              <p>{formatNumber(xCardMetrics.reposts)}</p>
+            </article>
+            <article className="metric-card">
+              <h2>Likes</h2>
+              <p>{formatNumber(xCardMetrics.likes)}</p>
+            </article>
+            <article className="metric-card">
+              <h2>Profile Visits</h2>
+              <p>{xCardMetrics.profileVisits === null ? '--' : formatNumber(xCardMetrics.profileVisits)}</p>
+              <small className="metric-subtext">Unavailable until API integration</small>
+            </article>
+          </>
+        )}
       </section>
 
       <section className="content-grid">
         <article className="panel post-panel">
           <div className="panel-title-row">
             <h2>Posts</h2>
-            <span>{posts.length} records</span>
+            <span>{platformPosts.length} records</span>
           </div>
           <div className="table-wrap">
             <table>
@@ -419,11 +633,14 @@ function App() {
                 </tr>
               </thead>
               <tbody>
-                {posts.map((post) => (
+                {platformPosts.map((post) => (
                   <tr
                     key={post._id}
                     className={selectedPostId === post._id ? 'is-selected' : ''}
-                    onClick={() => setSelectedPostId(post._id)}
+                    onClick={() =>
+                      activePlatform &&
+                      setSelectedPostByPlatform((prev) => ({ ...prev, [activePlatform]: post._id }))
+                    }
                   >
                     <td>{post.platform.toUpperCase()}</td>
                     <td>{post.accountName}</td>
@@ -444,27 +661,23 @@ function App() {
 
           <p className="selected-content">{selectedPost?.content ?? 'Select a post from the table.'}</p>
 
-          {loadingSeries ? (
-            <p>Loading trend series...</p>
-          ) : (
-            <div className="chart-wrap">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={selectedSeries}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#3d4354" />
-                  <XAxis dataKey="createdAt" tickFormatter={formatDate} />
-                  <YAxis />
-                  <Tooltip
-                    labelFormatter={(value) => formatDate(String(value))}
-                    formatter={(value) => formatNumber(Number(value ?? 0))}
-                  />
-                  <Legend />
-                  <Bar dataKey="retweetCount" name="Retweets" fill="#5590f3" barSize={14} />
-                  <Line type="monotone" dataKey="likeCount" name="Likes" stroke="#fd8b5d" strokeWidth={2.5} dot={false} />
-                  <Line type="monotone" dataKey="replyCount" name="Replies" stroke="#73c476" strokeWidth={2.5} dot={false} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
-          )}
+          <div className="chart-wrap">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={selectedSeries}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#3d4354" />
+                <XAxis dataKey="createdAt" tickFormatter={formatDate} />
+                <YAxis />
+                <Tooltip
+                  labelFormatter={(value) => formatDate(String(value))}
+                  formatter={(value) => formatNumber(Number(value ?? 0))}
+                />
+                <Legend />
+                <Bar dataKey="retweetCount" name="Retweets" fill="#5590f3" barSize={14} />
+                <Line type="monotone" dataKey="likeCount" name="Likes" stroke="#fd8b5d" strokeWidth={2.5} dot={false} />
+                <Line type="monotone" dataKey="replyCount" name="Replies" stroke="#73c476" strokeWidth={2.5} dot={false} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
 
           {error && <p className="error-text">{error}</p>}
         </article>
@@ -656,6 +869,18 @@ function App() {
           </div>
         </article>
       </section>
+    </>
+  )
+
+  return (
+    <main className="app-shell">
+      <nav className="top-nav" aria-label="Main pages">
+        {tabButton('LinkedIn', 'linkedin')}
+        {tabButton('X', 'x')}
+        {tabButton('Insights', 'insights')}
+      </nav>
+
+      {activePage === 'insights' ? renderInsights() : renderPlatformPage()}
     </main>
   )
 }

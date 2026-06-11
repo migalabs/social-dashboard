@@ -8,6 +8,7 @@ const morgan = require('morgan');
 const connectToDatabase = require('./config/db');
 const Post = require('./models/Post');
 const MetricSnapshot = require('./models/MetricSnapshot');
+const { twitterApiGet } = require('./services/twitterApi');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -90,6 +91,32 @@ app.get('/api/overview', async (_req, res) => {
 		);
 	} catch (error) {
 		res.status(500).json({ error: 'Failed to fetch overview data' });
+	}
+});
+
+app.get('/api/twitter/user/info', async (req, res) => {
+	try {
+		const result = await twitterApiGet('/twitter/user/info', req.query);
+		res.json(result);
+	} catch (error) {
+		res.status(error.status || 500).json({
+			error: 'Failed to fetch Twitter user info',
+			details: error.message,
+			upstream: error.upstream || null,
+		});
+	}
+});
+
+app.get('/api/twitter/user/last_tweets', async (req, res) => {
+	try {
+		const result = await twitterApiGet('/twitter/user/last_tweets', req.query);
+		res.json(result);
+	} catch (error) {
+		res.status(error.status || 500).json({
+			error: 'Failed to fetch Twitter user last tweets',
+			details: error.message,
+			upstream: error.upstream || null,
+		});
 	}
 });
 
