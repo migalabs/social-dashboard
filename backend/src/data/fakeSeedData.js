@@ -44,6 +44,7 @@ function generateFakePosts() {
       externalPostId: 'li-post-001',
       accountName: 'MigaLabs',
       content: 'Launching our social analytics beta this month.',
+      isReply: false,
       publishedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 18),
       baseline: {
         likes: 30,
@@ -58,6 +59,7 @@ function generateFakePosts() {
       externalPostId: 'li-post-002',
       accountName: 'MigaLabs',
       content: 'How we measure engagement quality beyond likes.',
+      isReply: true,
       publishedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 12),
       baseline: {
         likes: 18,
@@ -72,6 +74,7 @@ function generateFakePosts() {
       externalPostId: 'x-post-001',
       accountName: 'MigaLabsHQ',
       content: 'Post-level analytics trends matter more than one-day spikes.',
+      isReply: false,
       publishedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 9),
       baseline: {
         likes: 25,
@@ -86,6 +89,7 @@ function generateFakePosts() {
       externalPostId: 'x-post-002',
       accountName: 'MigaLabsHQ',
       content: 'Which metric predicts campaign outcomes best? We are testing.',
+      isReply: true,
       publishedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 6),
       baseline: {
         likes: 40,

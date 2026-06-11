@@ -20,6 +20,11 @@ const postSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    isReply: {
+      type: Boolean,
+      required: true,
+      default: false,
+    },
     publishedAt: {
       type: Date,
       required: true,
