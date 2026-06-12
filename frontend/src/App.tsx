@@ -610,7 +610,7 @@ function App() {
             <article className="metric-card">
               <h2>Profile Visits</h2>
               <p>{xCardMetrics.profileVisits === null ? '--' : formatNumber(xCardMetrics.profileVisits)}</p>
-              <small className="metric-subtext">Unavailable until API integration</small>
+              <small className="metric-subtext">This is weird I'll do it later</small>
             </article>
           </>
         )}

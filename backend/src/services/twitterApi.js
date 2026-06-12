@@ -1,4 +1,10 @@
 const BASE_URL = process.env.TWITTERAPI_BASE_URL || 'https://api.twitterapi.io';
+const MIN_REQUEST_INTERVAL_MS = Number(process.env.TWITTERAPI_MIN_REQUEST_INTERVAL_MS || 5500);
+let lastRequestAt = 0;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function buildUrl(path, query = {}) {
   const url = new URL(path, BASE_URL);
@@ -21,6 +27,12 @@ async function twitterApiGet(path, query = {}) {
     throw error;
   }
 
+  const now = Date.now();
+  const elapsed = now - lastRequestAt;
+  if (elapsed < MIN_REQUEST_INTERVAL_MS) {
+    await sleep(MIN_REQUEST_INTERVAL_MS - elapsed);
+  }
+
   const url = buildUrl(path, query);
   const response = await fetch(url, {
     method: 'GET',
@@ -30,6 +42,7 @@ async function twitterApiGet(path, query = {}) {
   });
 
   const text = await response.text();
+  lastRequestAt = Date.now();
   let payload = null;
 
   try {

@@ -87,9 +87,9 @@ function extractUserInfo(payload) {
   return {
     accountHandle: String(raw.screen_name || raw.username || raw.userName || raw.handle || '').replace(/^@/, ''),
     accountName: raw.name || raw.user_name || raw.displayName || '',
-    followersCount: toNumber(stats.followers_count || raw.followers_count || raw.followersCount, 0),
-    followingCount: toNumber(stats.following_count || raw.friends_count || raw.followingCount, 0),
-    tweetCount: toNumber(stats.tweet_count || raw.statuses_count || raw.tweetCount, 0),
+    followersCount: toNumber(stats.followers_count || raw.followers_count || raw.followersCount || raw.followers, 0),
+    followingCount: toNumber(stats.following_count || raw.friends_count || raw.followingCount || raw.following, 0),
+    tweetCount: toNumber(stats.tweet_count || raw.statuses_count || raw.tweetCount || raw.statusesCount, 0),
     listedCount: toNumber(stats.listed_count || raw.listed_count || raw.listedCount, 0),
     profileVisitsCount: Number.isFinite(Number(raw.profile_visits_count))
       ? Number(raw.profile_visits_count)
@@ -139,12 +139,29 @@ function normalizeTweet(rawTweet) {
     externalPostId: id,
     content,
     publishedAt,
-    isReply: Boolean(rawTweet.in_reply_to_status_id || rawTweet.inReplyToStatusId || rawTweet.in_reply_to_user_id),
-    likesCount: toNumber(metrics.like_count || rawTweet.favorite_count || rawTweet.likes, 0),
-    commentsCount: toNumber(metrics.reply_count || rawTweet.reply_count || rawTweet.replies, 0),
-    impressionsCount: toNumber(metrics.impression_count || metrics.view_count || rawTweet.view_count || rawTweet.impressions, 0),
-    savesOrBookmarksCount: toNumber(metrics.bookmark_count || rawTweet.bookmark_count || rawTweet.bookmarks, 0),
-    sharesCount: toNumber(metrics.retweet_count || rawTweet.retweet_count || rawTweet.shares, 0),
+    isReply: Boolean(
+      rawTweet.isReply ||
+        rawTweet.in_reply_to_status_id ||
+        rawTweet.inReplyToStatusId ||
+        rawTweet.in_reply_to_user_id ||
+        rawTweet.inReplyToId
+    ),
+    likesCount: toNumber(metrics.like_count || rawTweet.like_count || rawTweet.likeCount || rawTweet.favorite_count || rawTweet.likes, 0),
+    commentsCount: toNumber(metrics.reply_count || rawTweet.reply_count || rawTweet.replyCount || rawTweet.replies, 0),
+    impressionsCount: toNumber(
+      metrics.impression_count ||
+        metrics.view_count ||
+        rawTweet.impression_count ||
+        rawTweet.view_count ||
+        rawTweet.viewCount ||
+        rawTweet.impressions,
+      0
+    ),
+    savesOrBookmarksCount: toNumber(
+      metrics.bookmark_count || rawTweet.bookmark_count || rawTweet.bookmarkCount || rawTweet.bookmarks,
+      0
+    ),
+    sharesCount: toNumber(metrics.retweet_count || rawTweet.retweet_count || rawTweet.retweetCount || rawTweet.shares, 0),
   };
 }
 

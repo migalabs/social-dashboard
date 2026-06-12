@@ -158,38 +158,6 @@ function generateFakePosts() {
         impressionCount: 21104,
       },
     },
-    {
-      platform: 'x',
-      externalPostId: 'x-post-001',
-      accountName: 'MigaLabs',
-      content: 'Post-level analytics trends matter more than one-day spikes.',
-      isReply: false,
-      publishedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 9),
-      baseline: {
-        view_count: 12470,
-        like_count: 246,
-        retweet_count: 31,
-        reply_count: 17,
-        quote_count: 9,
-        bookmark_count: 41,
-      },
-    },
-    {
-      platform: 'x',
-      externalPostId: 'x-post-002',
-      accountName: 'MigaLabs',
-      content: 'Which metric predicts campaign outcomes best? We are testing.',
-      isReply: true,
-      publishedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 6),
-      baseline: {
-        view_count: 18820,
-        like_count: 392,
-        retweet_count: 46,
-        reply_count: 24,
-        quote_count: 14,
-        bookmark_count: 69,
-      },
-    },
   ];
 
   const linkedinTopics = [
@@ -222,39 +190,6 @@ function generateFakePosts() {
         commentCount: 6 + index * 2 + randomInt(0, 5),
         shareCount: 1 + Math.floor(index / 3) + randomInt(0, 2),
         impressionCount: 16500 + index * 2150 + randomInt(0, 2200),
-      },
-    });
-  });
-
-  const xTopics = [
-    'We shipped faster campaign diagnostics for content teams.',
-    'A quick thread on engagement efficiency across channels.',
-    'Today we are comparing post decay curves by cohort.',
-    'How we identify resilient posts during low-reach weeks.',
-    'Our take on metric quality vs metric quantity.',
-    'The dashboard view we use before every content review.',
-    'Post velocity snapshots can reveal hidden winners early.',
-    'We tested reply-heavy posts against save-heavy posts.',
-    'Top performers are not always the most viewed posts.',
-    'A simple framework for social trend monitoring.',
-  ];
-
-  xTopics.forEach((content, index) => {
-    const n = index + 3;
-    seedPosts.push({
-      platform: 'x',
-      externalPostId: `x-post-${String(n).padStart(3, '0')}`,
-      accountName: 'MigaLabs',
-      content,
-      isReply: index % 4 === 1,
-      publishedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * (3 + index * 2)),
-      baseline: {
-        view_count: 9200 + index * 1700 + randomInt(0, 1300),
-        like_count: 140 + index * 26 + randomInt(0, 30),
-        retweet_count: 18 + index * 4 + randomInt(0, 6),
-        reply_count: 9 + index * 3 + randomInt(0, 5),
-        quote_count: 4 + index * 2 + randomInt(0, 4),
-        bookmark_count: 24 + index * 7 + randomInt(0, 10),
       },
     });
   });
