@@ -3,7 +3,7 @@ name: Twitter Research Trends
 on:
   workflow_dispatch:
   schedule:
-    - cron: '20 14 * * *'
+    - cron: '20 14 * * 2' 
 
 jobs:
   sync-twitter-research-trends:
