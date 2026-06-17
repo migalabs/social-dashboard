@@ -26,6 +26,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate required secrets
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          TWITTERAPI_API_KEY: ${{ secrets.TWITTERAPI_API_KEY }}
+          TWITTER_RESEARCH_LIST_ID: ${{ secrets.TWITTER_RESEARCH_LIST_ID }}
+        run: |
+          node -e "const required = ['MONGODB_URI','TWITTERAPI_API_KEY','TWITTER_RESEARCH_LIST_ID']; const missing = required.filter((key) => !process.env[key] || !String(process.env[key]).trim()); if (missing.length) { console.error('Missing required GitHub secrets: ' + missing.join(', ')); process.exit(1); } try { const uri = new URL(process.env.MONGODB_URI); console.log('Using MongoDB host:', uri.hostname); } catch (error) { console.error('MONGODB_URI is not a valid URI'); process.exit(1); }"
+
       - name: Run Twitter research trends sync
         run: npm run sync:twitter:research
         env:
