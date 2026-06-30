@@ -8,6 +8,24 @@ function toNumber(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function calculateFollowerGrowth(currentFollowers, previousFollowers) {
+  const current = toNumber(currentFollowers, 0);
+  const previous = toNumber(previousFollowers, 0);
+  const growth = current - previous;
+
+  if (previous <= 0) {
+    return {
+      absolute: growth,
+      percent: null,
+    };
+  }
+
+  return {
+    absolute: growth,
+    percent: Number((((current - previous) / previous) * 100).toFixed(2)),
+  };
+}
+
 function normalizeHandleInput(input) {
   const raw = String(input || '').trim();
   if (!raw) {
@@ -316,6 +334,18 @@ async function syncTwitterHistory({ handles, trackingWindowDays = 120 }) {
     try {
       const { user: accountInfo, queryUsed: userQueryUsed } = await fetchUserInfo(handle);
 
+      const previousAccountSnapshot = await TwitterAccountSnapshot.findOne({
+        accountHandle: accountInfo.accountHandle || handle,
+        collectedAt: { $lt: collectedAt },
+      })
+        .sort({ collectedAt: -1 })
+        .lean();
+
+      const followerGrowth = calculateFollowerGrowth(
+        accountInfo.followersCount,
+        previousAccountSnapshot?.followersCount
+      );
+
       await TwitterAccountSnapshot.updateOne(
         { accountHandle: accountInfo.accountHandle || handle, collectedAt },
         {
@@ -349,6 +379,9 @@ async function syncTwitterHistory({ handles, trackingWindowDays = 120 }) {
       summary.results.push({
         ...result,
         status: 'ok',
+        followersCount: accountInfo.followersCount,
+        previousFollowersCount: toNumber(previousAccountSnapshot?.followersCount, 0),
+        followerGrowth,
         userQueryUsed,
         tweetsQueryUsed,
       });

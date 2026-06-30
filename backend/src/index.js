@@ -9,9 +9,11 @@ const connectToDatabase = require('./config/db');
 const Post = require('./models/Post');
 const MetricSnapshot = require('./models/MetricSnapshot');
 const TwitterResearchSnapshot = require('./models/TwitterResearchSnapshot');
+const LinkedInMonthlySnapshot = require('./models/LinkedInMonthlySnapshot');
 const { twitterApiGet } = require('./services/twitterApi');
 const { syncTwitterHistory } = require('./services/twitterSync');
 const { getCryptoTrendAnalysis } = require('./services/twitterResearch');
+const { runLinkedInRetentionJob } = require('./services/linkedinRetention');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -20,6 +22,19 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
+
+function calculateXTotalEngagements({ likes = 0, replies = 0, reposts = 0, linkClicks = 0, profileClicks = 0, mediaClicks = 0, follows = 0 }) {
+	return likes + replies + reposts + linkClicks + profileClicks + mediaClicks + follows;
+}
+
+function calculateEngagementRate(totalEngagements, impressions) {
+	const safeImpressions = Number(impressions) || 0;
+	if (safeImpressions <= 0) {
+		return 0;
+	}
+
+	return Number(((Number(totalEngagements) / safeImpressions) * 100).toFixed(2));
+}
 
 app.get('/health', (_req, res) => {
 	res.json({ status: 'ok' });
@@ -44,6 +59,19 @@ app.get('/api/posts/:postId/timeseries', async (req, res) => {
 
 		res.json(
 			snapshots.map((snapshot) => ({
+				totalEngagements: calculateXTotalEngagements({
+					likes: snapshot.likesCount,
+					replies: snapshot.commentsCount,
+					reposts: snapshot.sharesCount,
+				}),
+				engagementRate: calculateEngagementRate(
+					calculateXTotalEngagements({
+						likes: snapshot.likesCount,
+						replies: snapshot.commentsCount,
+						reposts: snapshot.sharesCount,
+					}),
+					snapshot.impressionsCount
+				),
 				date: snapshot.collectedAt,
 				likes: snapshot.likesCount,
 				comments: snapshot.commentsCount,
@@ -83,15 +111,25 @@ app.get('/api/overview', async (_req, res) => {
 			},
 		]);
 
-		res.json(
-			totals[0] || {
-				likes: 0,
-				comments: 0,
-				impressions: 0,
-				savesOrBookmarks: 0,
-				shares: 0,
-			}
-		);
+		const overview = totals[0] || {
+			likes: 0,
+			comments: 0,
+			impressions: 0,
+			savesOrBookmarks: 0,
+			shares: 0,
+		};
+
+		const totalEngagements = calculateXTotalEngagements({
+			likes: overview.likes,
+			replies: overview.comments,
+			reposts: overview.shares,
+		});
+
+		res.json({
+			...overview,
+			totalEngagements,
+			engagementRate: calculateEngagementRate(totalEngagements, overview.impressions),
+		});
 	} catch (error) {
 		res.status(500).json({ error: 'Failed to fetch overview data' });
 	}
@@ -227,6 +265,46 @@ app.post('/api/twitter/sync', async (req, res) => {
 			error: 'Failed to sync Twitter history',
 			details: error.message,
 			upstream: error.upstream || null,
+		});
+	}
+});
+
+app.post('/api/linkedin/retention/run', async (_req, res) => {
+	try {
+		const result = await runLinkedInRetentionJob();
+		return res.json(result);
+	} catch (error) {
+		return res.status(500).json({
+			error: 'LinkedIn retention job failed',
+			details: error.message,
+		});
+	}
+});
+
+app.get('/api/linkedin/monthly-snapshots', async (req, res) => {
+	try {
+		const { postId, year, month } = req.query;
+		const filter = {};
+
+		if (postId) {
+			filter.post = postId;
+		} else {
+			const linkedinPostIds = await Post.distinct('_id', { platform: 'linkedin' });
+			filter.post = { $in: linkedinPostIds };
+		}
+
+		if (year) filter.year = Number(year);
+		if (month) filter.month = Number(month);
+
+		const snapshots = await LinkedInMonthlySnapshot.find(filter)
+			.sort({ year: -1, month: -1 })
+			.lean();
+
+		return res.json(snapshots);
+	} catch (error) {
+		return res.status(500).json({
+			error: 'Failed to fetch LinkedIn monthly snapshots',
+			details: error.message,
 		});
 	}
 });

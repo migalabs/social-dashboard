@@ -3,6 +3,25 @@ const { twitterApiGet } = require('./twitterApi');
 const DEFAULT_WINDOW_DAYS = 7;
 const DEFAULT_TOP_LIMIT = 12;
 
+const TREND_HALF_LIFE_HOURS = 48;
+const TREND_DECAY_LAMBDA = Math.log(2) / TREND_HALF_LIFE_HOURS;
+
+const ENGAGEMENT_WEIGHTS = {
+  likes: 1,
+  replies: 4,
+  retweets: 3.5,
+  quotes: 4,
+  bookmarks: 4.5,
+  impressions: 4,
+};
+
+const MOMENTUM_WEIGHTS = {
+  volume: 0.35,
+  engagement: 0.35,
+  recency: 0.2,
+  acceleration: 0.1,
+};
+
 const STOPWORDS = new Set([
   'a', 'about', 'above', 'after', 'again', 'against', 'all', 'am', 'an', 'and', 'any', 'are', 'as', 'at',
   'be', 'because', 'been', 'before', 'being', 'below', 'between', 'both', 'but', 'by',
@@ -209,6 +228,14 @@ function extractEngagement(rawTweet) {
     0
   );
 
+  const weightedEngagement =
+    likes * ENGAGEMENT_WEIGHTS.likes +
+    replies * ENGAGEMENT_WEIGHTS.replies +
+    retweets * ENGAGEMENT_WEIGHTS.retweets +
+    quotes * ENGAGEMENT_WEIGHTS.quotes +
+    bookmarks * ENGAGEMENT_WEIGHTS.bookmarks +
+    Math.log1p(impressions) * ENGAGEMENT_WEIGHTS.impressions;
+
   return {
     likes,
     replies,
@@ -217,6 +244,7 @@ function extractEngagement(rawTweet) {
     bookmarks,
     impressions,
     score: likes + replies * 2 + retweets * 2 + quotes * 2 + bookmarks,
+    weightedEngagement: Number(weightedEngagement.toFixed(4)),
   };
 }
 
@@ -240,11 +268,84 @@ function incrementCount(map, key, amount = 1) {
   map.set(key, (map.get(key) || 0) + amount);
 }
 
-function pickTop(map, limit) {
-  return Array.from(map.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, limit)
-    .map(([name, count]) => ({ name, count }));
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function toIsoDay(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function createEntityStats() {
+  return {
+    mentionCount: 0,
+    weightedEngagementSum: 0,
+    weightedTrendSum: 0,
+    recencySum: 0,
+    recentWeightedTrendSum: 0,
+    previousWeightedTrendSum: 0,
+  };
+}
+
+function addEntityObservation(store, entityName, observation) {
+  if (!entityName) {
+    return;
+  }
+
+  const current = store.get(entityName) || createEntityStats();
+  current.mentionCount += 1;
+  current.weightedEngagementSum += observation.weightedEngagement;
+  current.weightedTrendSum += observation.weightedTrend;
+  current.recencySum += observation.recencyMultiplier;
+
+  if (observation.isRecent) {
+    current.recentWeightedTrendSum += observation.weightedTrend;
+  } else {
+    current.previousWeightedTrendSum += observation.weightedTrend;
+  }
+
+  store.set(entityName, current);
+}
+
+function rankEntitiesByMomentum(store, entityType, limit) {
+  return Array.from(store.entries())
+    .map(([name, stats]) => {
+      const mentionCount = stats.mentionCount;
+      const avgWeightedEngagement = mentionCount > 0 ? stats.weightedEngagementSum / mentionCount : 0;
+      const avgRecency = mentionCount > 0 ? stats.recencySum / mentionCount : 0;
+
+      const recent = stats.recentWeightedTrendSum;
+      const previous = stats.previousWeightedTrendSum;
+      const accelerationRaw = previous > 0 ? (recent - previous) / previous : recent > 0 ? 1 : 0;
+      const accelerationNormalized = clamp((clamp(accelerationRaw, -1, 3) + 1) / 4, 0, 1);
+
+      const volumeComponent = Math.log1p(mentionCount);
+      const engagementComponent = Math.log1p(avgWeightedEngagement);
+      const recencyComponent = clamp(avgRecency, 0, 1);
+
+      const momentumScore = Number(
+        (
+          100 *
+          (volumeComponent * MOMENTUM_WEIGHTS.volume +
+            engagementComponent * MOMENTUM_WEIGHTS.engagement +
+            recencyComponent * MOMENTUM_WEIGHTS.recency +
+            accelerationNormalized * MOMENTUM_WEIGHTS.acceleration)
+        ).toFixed(2)
+      );
+
+      return {
+        entityType,
+        name,
+        mentionCount,
+        weightedMentions: Number(stats.weightedTrendSum.toFixed(2)),
+        avgWeightedEngagement: Number(avgWeightedEngagement.toFixed(2)),
+        recencyScore: Number(avgRecency.toFixed(4)),
+        accelerationScore: Number(accelerationRaw.toFixed(4)),
+        momentumScore,
+      };
+    })
+    .sort((a, b) => b.momentumScore - a.momentumScore || b.weightedMentions - a.weightedMentions)
+    .slice(0, limit);
 }
 
 function classifyTopics(tokens, hashtags, textLower) {
@@ -308,11 +409,12 @@ function analyzeTweetsForCryptoTrends(rawTweets, { windowDays = DEFAULT_WINDOW_D
   const now = new Date();
   const from = new Date(now);
   from.setUTCDate(from.getUTCDate() - windowDays);
+  const midpointMs = from.getTime() + (now.getTime() - from.getTime()) / 2;
+  const midpoint = new Date(midpointMs);
 
-  const hashtagCounts = new Map();
-  const keywordCounts = new Map();
-  const topicCounts = new Map();
-  const topicEngagement = new Map();
+  const hashtagStats = new Map();
+  const keywordStats = new Map();
+  const topicStats = new Map();
 
   const analyzedTweets = [];
 
@@ -333,13 +435,24 @@ function analyzeTweetsForCryptoTrends(rawTweets, { windowDays = DEFAULT_WINDOW_D
     const engagement = extractEngagement(rawTweet);
     const topics = classifyTopics(tokens, hashtags, textLower);
 
-    hashtags.forEach((tag) => incrementCount(hashtagCounts, tag));
-    tokens.forEach((token) => incrementCount(keywordCounts, token));
+    const ageHours = Math.max(0, (now.getTime() - publishedAt.getTime()) / (1000 * 60 * 60));
+    const recencyMultiplier = Math.exp(-TREND_DECAY_LAMBDA * ageHours);
+    const weightedTrendScore = engagement.weightedEngagement * recencyMultiplier;
+    const isRecent = publishedAt >= midpoint;
+    const observation = {
+      weightedEngagement: engagement.weightedEngagement,
+      weightedTrend: weightedTrendScore,
+      recencyMultiplier,
+      isRecent,
+    };
 
-    topics.forEach((topic) => {
-      incrementCount(topicCounts, topic);
-      incrementCount(topicEngagement, topic, engagement.score);
-    });
+    const uniqueHashtags = Array.from(new Set(hashtags));
+    const uniqueTokens = Array.from(new Set(tokens));
+    const uniqueTopics = Array.from(new Set(topics));
+
+    uniqueHashtags.forEach((tag) => addEntityObservation(hashtagStats, tag, observation));
+    uniqueTokens.forEach((token) => addEntityObservation(keywordStats, token, observation));
+    uniqueTopics.forEach((topic) => addEntityObservation(topicStats, topic, observation));
 
     analyzedTweets.push({
       id: String(rawTweet.id_str || rawTweet.id || rawTweet.tweet_id || rawTweet.rest_id || ''),
@@ -348,34 +461,60 @@ function analyzeTweetsForCryptoTrends(rawTweets, { windowDays = DEFAULT_WINDOW_D
       publishedAt,
       hashtags,
       topics,
-      engagement,
+      engagement: {
+        ...engagement,
+        recencyMultiplier: Number(recencyMultiplier.toFixed(4)),
+        weightedTrendScore: Number(weightedTrendScore.toFixed(4)),
+      },
     });
   }
 
-  const topHashtags = pickTop(hashtagCounts, topLimit).map((entry) => ({
+  const rankedHashtags = rankEntitiesByMomentum(hashtagStats, 'hashtag', topLimit);
+  const rankedKeywords = rankEntitiesByMomentum(keywordStats, 'keyword', topLimit);
+  const rankedTopics = rankEntitiesByMomentum(topicStats, 'topic', topLimit);
+
+  const topHashtags = rankedHashtags.map((entry) => ({
     hashtag: entry.name,
-    count: entry.count,
+    count: entry.mentionCount,
+    weightedMentions: entry.weightedMentions,
+    avgWeightedEngagement: entry.avgWeightedEngagement,
+    recencyScore: entry.recencyScore,
+    accelerationScore: entry.accelerationScore,
+    momentumScore: entry.momentumScore,
   }));
 
-  const topKeywords = pickTop(keywordCounts, topLimit).map((entry) => ({
+  const topKeywords = rankedKeywords.map((entry) => ({
     keyword: entry.name,
-    count: entry.count,
+    count: entry.mentionCount,
+    weightedMentions: entry.weightedMentions,
+    avgWeightedEngagement: entry.avgWeightedEngagement,
+    recencyScore: entry.recencyScore,
+    accelerationScore: entry.accelerationScore,
+    momentumScore: entry.momentumScore,
   }));
 
-  const topicBreakdown = pickTop(topicCounts, topLimit).map((entry) => {
-    const engagementScore = topicEngagement.get(entry.name) || 0;
-    const avgEngagementScore = entry.count > 0 ? Number((engagementScore / entry.count).toFixed(2)) : 0;
-    return {
-      topic: entry.name,
-      mentionCount: entry.count,
-      avgEngagementScore,
-      trendScore: Number((entry.count * (1 + avgEngagementScore / 100)).toFixed(2)),
-    };
-  });
+  const topicBreakdown = rankedTopics.map((entry) => ({
+    topic: entry.name,
+    mentionCount: entry.mentionCount,
+    weightedMentions: entry.weightedMentions,
+    avgWeightedEngagement: entry.avgWeightedEngagement,
+    recencyScore: entry.recencyScore,
+    accelerationScore: entry.accelerationScore,
+    trendScore: entry.momentumScore,
+    momentumScore: entry.momentumScore,
+  }));
+
+  const unifiedTrendingEntities = [...rankedTopics, ...rankedHashtags, ...rankedKeywords]
+    .sort((a, b) => b.momentumScore - a.momentumScore || b.weightedMentions - a.weightedMentions)
+    .slice(0, topLimit)
+    .map((entry, index) => ({
+      rank: index + 1,
+      ...entry,
+    }));
 
   const mostEngagedTweets = analyzedTweets
     .slice()
-    .sort((a, b) => b.engagement.score - a.engagement.score)
+    .sort((a, b) => b.engagement.weightedTrendScore - a.engagement.weightedTrendScore)
     .slice(0, 8)
     .map((tweet) => ({
       id: tweet.id,
@@ -389,7 +528,7 @@ function analyzeTweetsForCryptoTrends(rawTweets, { windowDays = DEFAULT_WINDOW_D
 
   const dailyVolumeMap = new Map();
   analyzedTweets.forEach((tweet) => {
-    const dayKey = tweet.publishedAt.toISOString().slice(0, 10);
+    const dayKey = toIsoDay(tweet.publishedAt);
     incrementCount(dailyVolumeMap, dayKey, 1);
   });
 
@@ -408,6 +547,7 @@ function analyzeTweetsForCryptoTrends(rawTweets, { windowDays = DEFAULT_WINDOW_D
     topHashtags,
     topKeywords,
     topicBreakdown,
+    unifiedTrendingEntities,
     dailyVolume,
     mostEngagedTweets,
   };
