@@ -20,6 +20,30 @@
   backdrop-filter: blur(10px);
 }
 
+.theme-toggle {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--nav-text);
+  border-radius: 999px;
+  padding: 0.52rem 0.92rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.theme-toggle:hover {
+  border-color: rgba(255, 87, 41, 1);
+  background: rgba(255, 87, 41, 0.14);
+  color: var(--text-strong);
+}
+
+.theme-toggle:focus-visible {
+  outline: 2px solid #ff5729;
+  outline-offset: 2px;
+}
+
 .nav-link {
   border: 1px solid transparent;
   background: transparent;
@@ -296,13 +320,13 @@
 .compact-post-card:focus-visible {
   transform: none;
   border-color: rgba(255, 87, 41, 1);
-  background: rgba(255, 87, 41, 0.14);
+  background: rgba(255, 87, 41, 0.22);
   box-shadow: none;
 }
 
 .compact-post-card.is-selected {
   border-color: rgba(255, 87, 41, 1);
-  background: rgba(255, 87, 41, 0.14);
+  background: rgba(255, 87, 41, 0.22);
   box-shadow: none;
 }
 
@@ -501,16 +525,16 @@ tr.is-top-post {
 }
 
 .recharts-default-tooltip {
-  background: rgba(28, 36, 51, 0.98) !important;
+  background: var(--tooltip-bg) !important;
   border: 1px solid rgba(255, 87, 41, 0.55) !important;
   border-radius: 0.85rem !important;
   box-shadow: 0 14px 30px rgba(2, 6, 23, 0.38) !important;
-  color: #f3f4f6 !important;
+  color: var(--tooltip-text) !important;
   padding: 0.7rem 0.8rem !important;
 }
 
 .recharts-default-tooltip .recharts-tooltip-label {
-  color: #ffd7cc !important;
+  color: var(--tooltip-label) !important;
   font-weight: 700;
   margin-bottom: 0.35rem;
 }
@@ -518,7 +542,106 @@ tr.is-top-post {
 .recharts-default-tooltip .recharts-tooltip-item,
 .recharts-default-tooltip .recharts-tooltip-item-name,
 .recharts-default-tooltip .recharts-tooltip-item-value {
-  color: #e5e7eb !important;
+  color: var(--tooltip-text) !important;
+}
+
+:root[data-theme='light'] .top-nav {
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+:root[data-theme='light'] .nav-link {
+  color: var(--nav-text);
+}
+
+:root[data-theme='light'] .nav-link:hover {
+  color: #111827;
+}
+
+:root[data-theme='light'] .metric-card,
+:root[data-theme='light'] .panel,
+:root[data-theme='light'] .research-tweet-card,
+:root[data-theme='light'] .compact-post-card,
+:root[data-theme='light'] .insights-post-item,
+:root[data-theme='light'] .insights-impact-card {
+  background: #DEDCDC;
+  border-color: var(--border);
+}
+
+:root[data-theme='light'] .hero-panel {
+  background: transparent;
+  border-color: transparent;
+}
+
+:root[data-theme='light'] .hero-panel h1,
+:root[data-theme='light'] .metric-card p,
+:root[data-theme='light'] .panel-title-row h2,
+:root[data-theme='light'] .insights-hero-badge h2,
+:root[data-theme='light'] .insights-hero-badge p,
+:root[data-theme='light'] th {
+  color: var(--text-strong);
+}
+
+:root[data-theme='light'] .hero-copy,
+:root[data-theme='light'] .selected-content,
+:root[data-theme='light'] td,
+:root[data-theme='light'] .compact-post-preview {
+  color: var(--text-secondary);
+}
+
+:root[data-theme='light'] .panel-title-row span,
+:root[data-theme='light'] .metric-card h2,
+:root[data-theme='light'] .compact-post-meta,
+:root[data-theme='light'] .compact-post-stats,
+:root[data-theme='light'] .metric-subtext,
+:root[data-theme='light'] .table-muted {
+  color: var(--text-muted);
+}
+
+:root[data-theme='light'] .insights-hero h1 {
+  background: linear-gradient(100deg, #111827 0%, #ea580c 45%, #fb923c 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+:root[data-theme='light'] .insights-hero-badge,
+:root[data-theme='light'] .research-chip,
+:root[data-theme='light'] .table-pill,
+:root[data-theme='light'] .compact-post-card.is-selected,
+:root[data-theme='light'] .compact-post-card:hover,
+:root[data-theme='light'] .compact-post-card:focus-visible {
+  background: rgba(255, 87, 41, 0.16);
+}
+
+:root[data-theme='light'] .table-pill,
+:root[data-theme='light'] .research-chip {
+  color: #9a3412;
+}
+
+:root[data-theme='light'] th,
+:root[data-theme='light'] td,
+:root[data-theme='light'] .compact-post-card,
+:root[data-theme='light'] .pagination-button {
+  border-color: var(--border);
+}
+
+:root[data-theme='light'] .pagination-button {
+  background: var(--surface-elevated);
+  color: var(--nav-text);
+}
+
+:root[data-theme='light'] tbody tr:hover {
+  background: rgba(255, 87, 41, 0.12);
+}
+
+:root[data-theme='light'] tr.is-selected {
+  background: rgba(224, 93, 56, 0.1);
+}
+
+:root[data-theme='light'] tr.is-top-post {
+  background: rgba(255, 143, 98, 0.12);
 }
 
 .recharts-default-tooltip .recharts-tooltip-item-name {

@@ -108,6 +108,7 @@ type ResearchTrendsResponse = {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000'
 const POSTS_PER_PAGE = 6
 type Page = 'insights' | 'linkedin' | 'x' | 'research'
+type Theme = 'dark' | 'light'
 
 function normalizeResearchData(payload: Partial<ResearchTrendsResponse> | null): ResearchTrendsResponse | null {
   if (!payload) {
@@ -136,6 +137,18 @@ function normalizeResearchData(payload: Partial<ResearchTrendsResponse> | null):
 }
 
 function App() {
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === 'undefined') {
+      return 'dark'
+    }
+
+    const storedTheme = window.localStorage.getItem('dashboard-theme')
+    if (storedTheme === 'dark' || storedTheme === 'light') {
+      return storedTheme
+    }
+
+    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+  })
   const [activePage, setActivePage] = useState<Page>('insights')
   const [posts, setPosts] = useState<Post[]>([])
   const [allSeriesByPost, setAllSeriesByPost] = useState<Record<string, TimeseriesPoint[]>>({})
@@ -153,6 +166,49 @@ function App() {
   const [researchLoading, setResearchLoading] = useState(false)
   const [researchError, setResearchError] = useState('')
   const analyticsPanelRef = useRef<HTMLDivElement | null>(null)
+  const chartGridColor = theme === 'dark' ? '#3d4354' : '#d7dfeb'
+  const chartPalette = theme === 'dark'
+    ? {
+        impressionsBar: '#5f96f3',
+        engagementLine: '#ffb088',
+        impressionsAreaStroke: '#5f96f3',
+        impressionsAreaFill: '#11304d',
+        erAreaLine: '#ff8f62',
+        trendScoreBar: '#ff6a3d',
+        mentionsBar: '#f7a683',
+        tweetVolumeStroke: '#ff6a3d',
+        tweetVolumeFill: '#6b2519',
+        repostBar: '#5a97f5',
+        likesLine: '#fd966f',
+        repliesLine: '#7acb82',
+        viewsAreaStroke: '#28b6de',
+        viewsAreaFill: '#0f334b',
+        erAreaStroke: '#9e8cf0',
+        erAreaFill: '#342f56',
+      }
+    : {
+        impressionsBar: '#2563eb',
+        engagementLine: '#b45309',
+        impressionsAreaStroke: '#2563eb',
+        impressionsAreaFill: '#bfdbfe',
+        erAreaLine: '#c2410c',
+        trendScoreBar: '#ea580c',
+        mentionsBar: '#fb923c',
+        tweetVolumeStroke: '#ea580c',
+        tweetVolumeFill: '#fed7aa',
+        repostBar: '#1d4ed8',
+        likesLine: '#ea580c',
+        repliesLine: '#16a34a',
+        viewsAreaStroke: '#0369a1',
+        viewsAreaFill: '#bae6fd',
+        erAreaStroke: '#7c3aed',
+        erAreaFill: '#ddd6fe',
+      }
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    window.localStorage.setItem('dashboard-theme', theme)
+  }, [theme])
 
   useEffect(() => {
     async function loadDashboard() {
@@ -755,7 +811,7 @@ function App() {
           <div className="chart-wrap compact">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={insightsPlatformBreakdown}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#3d4354" />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
                 <XAxis dataKey="label" />
                 <YAxis yAxisId="left" />
                 <YAxis yAxisId="right" orientation="right" unit="%" domain={[0, 'auto']} />
@@ -768,13 +824,13 @@ function App() {
                   }}
                 />
                 <Legend />
-                <Bar yAxisId="left" dataKey="impressions" name="Impressions" fill="#5f96f3" radius={[6, 6, 0, 0]} />
+                <Bar yAxisId="left" dataKey="impressions" name="Impressions" fill={chartPalette.impressionsBar} radius={[6, 6, 0, 0]} />
                 <Line
                   yAxisId="right"
                   type="monotone"
                   dataKey="engagementRate"
                   name="Engagement Rate"
-                  stroke="#ffb088"
+                  stroke={chartPalette.engagementLine}
                   strokeWidth={2.4}
                   dot={{ r: 4 }}
                 />
@@ -791,7 +847,7 @@ function App() {
           <div className="chart-wrap compact">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={insightsDailyTotals}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#3d4354" />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
                 <XAxis dataKey="date" tickFormatter={formatDate} />
                 <YAxis yAxisId="left" />
                 <YAxis yAxisId="right" orientation="right" unit="%" domain={[0, 'auto']} />
@@ -810,8 +866,8 @@ function App() {
                   dataKey="impressions"
                   name="Impressions"
                   yAxisId="left"
-                  stroke="#5f96f3"
-                  fill="#11304d"
+                  stroke={chartPalette.impressionsAreaStroke}
+                  fill={chartPalette.impressionsAreaFill}
                   fillOpacity={0.55}
                   strokeWidth={2.2}
                 />
@@ -820,7 +876,7 @@ function App() {
                   dataKey="engagementRate"
                   name="Engagement Rate"
                   yAxisId="right"
-                  stroke="#ff8f62"
+                  stroke={chartPalette.erAreaLine}
                   strokeWidth={2.25}
                   dot={false}
                 />
@@ -962,7 +1018,7 @@ function App() {
             <div className="chart-wrap compact">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={trendRows}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#3d4354" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
                   <XAxis dataKey="topic" hide />
                   <YAxis />
                   <Tooltip
@@ -974,8 +1030,8 @@ function App() {
                     }}
                   />
                   <Legend />
-                  <Bar dataKey="trendScore" name="Trend Score" fill="#ff5729" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="mentionCount" name="Mentions" fill="#f69f72" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="trendScore" name="Trend Score" fill={chartPalette.trendScoreBar} radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="mentionCount" name="Mentions" fill={chartPalette.mentionsBar} radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -989,7 +1045,7 @@ function App() {
             <div className="chart-wrap compact">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={dailyVolumeRows}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#3d4354" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
                   <XAxis dataKey="day" tickFormatter={formatDate} />
                   <YAxis />
                   <Tooltip
@@ -1000,8 +1056,8 @@ function App() {
                     type="monotone"
                     dataKey="tweetCount"
                     name="Tweet Count"
-                    stroke="#ff5729"
-                    fill="#69251a"
+                    stroke={chartPalette.tweetVolumeStroke}
+                    fill={chartPalette.tweetVolumeFill}
                     fillOpacity={0.55}
                     strokeWidth={2.25}
                   />
@@ -1238,7 +1294,7 @@ function App() {
             <div className="chart-wrap">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={selectedSeries}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#3d4354" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
                   <XAxis dataKey="createdAt" tickFormatter={formatDate} />
                   <YAxis />
                   <Tooltip
@@ -1246,9 +1302,9 @@ function App() {
                     formatter={(value) => formatNumber(Number(value ?? 0))}
                   />
                   <Legend />
-                  <Bar dataKey="retweetCount" name="Reposts" fill="#5590f3" barSize={14} />
-                  <Line type="monotone" dataKey="likeCount" name="Likes" stroke="#fd8b5d" strokeWidth={2.5} dot={false} />
-                  <Line type="monotone" dataKey="replyCount" name="Replies" stroke="#73c476" strokeWidth={2.5} dot={false} />
+                  <Bar dataKey="retweetCount" name="Reposts" fill={chartPalette.repostBar} barSize={14} />
+                  <Line type="monotone" dataKey="likeCount" name="Likes" stroke={chartPalette.likesLine} strokeWidth={2.5} dot={false} />
+                  <Line type="monotone" dataKey="replyCount" name="Replies" stroke={chartPalette.repliesLine} strokeWidth={2.5} dot={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
@@ -1264,7 +1320,7 @@ function App() {
             <div className="chart-wrap compact">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={selectedSeries}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#3d4354" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
                   <XAxis dataKey="createdAt" tickFormatter={formatDate} />
                   <YAxis yAxisId="left" />
                   <YAxis yAxisId="right" orientation="right" unit="%" domain={[0, 'auto']} />
@@ -1283,8 +1339,8 @@ function App() {
                     dataKey="viewCount"
                     name="Views"
                     yAxisId="left"
-                    stroke="#00aad0"
-                    fill="#0e3046"
+                    stroke={chartPalette.viewsAreaStroke}
+                    fill={chartPalette.viewsAreaFill}
                     fillOpacity={0.55}
                     strokeWidth={2.25}
                   />
@@ -1293,8 +1349,8 @@ function App() {
                     dataKey="engagementRate"
                     name="Engagement Rate"
                     yAxisId="right"
-                    stroke="#8c79e0"
-                    fill="#2f2f4d"
+                    stroke={chartPalette.erAreaStroke}
+                    fill={chartPalette.erAreaFill}
                     fillOpacity={0.55}
                     strokeWidth={2.5}
                   />
@@ -1316,6 +1372,14 @@ function App() {
         {tabButton('X', 'x')}
         {tabButton('Trends', 'research')}
         {tabButton('Insights', 'insights')}
+        <button
+          type="button"
+          className="theme-toggle"
+          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+        >
+          {theme === 'dark' ? 'Light' : 'Dark'}
+        </button>
       </nav>
 
       {activePage === 'insights' ? renderInsights() : activePage === 'research' ? renderResearch() : renderPlatformPage()}
