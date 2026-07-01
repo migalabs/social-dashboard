@@ -457,7 +457,15 @@ function analyzeTweetsForCryptoTrends(rawTweets, { windowDays = DEFAULT_WINDOW_D
     analyzedTweets.push({
       id: String(rawTweet.id_str || rawTweet.id || rawTweet.tweet_id || rawTweet.rest_id || ''),
       text,
-      author: rawTweet.user?.screen_name || rawTweet.user?.username || rawTweet.author?.username || null,
+      author:
+        rawTweet.user?.screen_name ||
+        rawTweet.user?.username ||
+        rawTweet.user?.userName ||
+        rawTweet.author?.username ||
+        rawTweet.author?.userName ||
+        rawTweet.screen_name ||
+        rawTweet.userName ||
+        null,
       publishedAt,
       hashtags,
       topics,
