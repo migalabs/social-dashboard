@@ -20,26 +20,36 @@
   backdrop-filter: blur(10px);
 }
 
-.theme-toggle {
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--nav-text);
+.theme-fab {
+  position: fixed;
+  top: 0.85rem;
+  left: 0.85rem;
+  z-index: 30;
+  width: 2.65rem;
+  height: 2.65rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #3d4354;
   border-radius: 999px;
-  padding: 0.52rem 0.92rem;
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  background: #1c2433;
+  color: #f3f4f6;
+  font-size: 1.1rem;
+  line-height: 1;
   cursor: pointer;
-  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+  box-shadow: 0 10px 24px rgba(2, 6, 23, 0.32);
+  backdrop-filter: blur(10px);
+  transition: transform 0.16s ease, border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
 }
 
-.theme-toggle:hover {
+.theme-fab:hover {
+  transform: translateY(-1px);
   border-color: rgba(255, 87, 41, 1);
-  background: rgba(255, 87, 41, 0.14);
-  color: var(--text-strong);
+  background: rgba(255, 87, 41, 0.18);
+  color: #ffffff;
 }
 
-.theme-toggle:focus-visible {
+.theme-fab:focus-visible {
   outline: 2px solid #ff5729;
   outline-offset: 2px;
 }
@@ -103,10 +113,7 @@
 }
 
 .insights-hero h1 {
-  background: linear-gradient(100deg, #ffffff 0%, #ffd8ca 45%, #ff8f62 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: #ffffff;
 }
 
 .insights-hero-badge-grid {
@@ -553,6 +560,13 @@ tr.is-top-post {
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
 
+:root[data-theme='light'] .theme-fab {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text-primary);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+}
+
 :root[data-theme='light'] .nav-link {
   color: var(--nav-text);
 }
@@ -602,10 +616,7 @@ tr.is-top-post {
 }
 
 :root[data-theme='light'] .insights-hero h1 {
-  background: linear-gradient(100deg, #111827 0%, #ea580c 45%, #fb923c 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: #111827;
 }
 
 :root[data-theme='light'] .insights-hero-badge,
@@ -688,9 +699,17 @@ tr.is-top-post {
 }
 
 @media (max-width: 640px) {
+  .theme-fab {
+    top: 0.55rem;
+    left: 0.55rem;
+    width: 2.4rem;
+    height: 2.4rem;
+    font-size: 1rem;
+  }
+
   .top-nav {
     width: calc(100vw - 1.2rem);
-    justify-content: space-between;
+    justify-content: center;
     padding: 0.38rem;
     gap: 0.35rem;
     top: 0.5rem;

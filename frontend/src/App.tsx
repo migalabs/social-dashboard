@@ -1367,19 +1367,20 @@ function App() {
 
   return (
     <main className="app-shell">
+      <button
+        type="button"
+        className="theme-fab"
+        aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+        onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+      >
+        <span aria-hidden="true">{theme === 'dark' ? '☀' : '☾'}</span>
+      </button>
+
       <nav className="top-nav" aria-label="Main pages">
         {tabButton('LinkedIn', 'linkedin')}
         {tabButton('X', 'x')}
         {tabButton('Trends', 'research')}
         {tabButton('Insights', 'insights')}
-        <button
-          type="button"
-          className="theme-toggle"
-          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-          onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
-        >
-          {theme === 'dark' ? 'Light' : 'Dark'}
-        </button>
       </nav>
 
       {activePage === 'insights' ? renderInsights() : activePage === 'research' ? renderResearch() : renderPlatformPage()}
