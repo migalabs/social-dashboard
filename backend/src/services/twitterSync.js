@@ -142,6 +142,10 @@ function extractTweets(payload) {
   return [];
 }
 
+function isRetweetContent(content) {
+  return /^RT\s+@/i.test(String(content || '').trim());
+}
+
 function normalizeTweet(rawTweet) {
   const metrics = rawTweet.public_metrics || rawTweet.metrics || rawTweet.legacy || {};
   const id = String(rawTweet.id_str || rawTweet.id || rawTweet.tweet_id || rawTweet.rest_id || '').trim();
@@ -150,6 +154,10 @@ function normalizeTweet(rawTweet) {
   const publishedAt = publishedAtRaw ? new Date(publishedAtRaw) : null;
 
   if (!id || !content || !publishedAt || Number.isNaN(publishedAt.getTime())) {
+    return null;
+  }
+
+  if (isRetweetContent(content)) {
     return null;
   }
 

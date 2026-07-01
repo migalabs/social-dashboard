@@ -42,7 +42,9 @@ app.get('/health', (_req, res) => {
 
 app.get('/api/posts', async (_req, res) => {
 	try {
-		const posts = await Post.find().sort({ publishedAt: -1 }).lean();
+		const posts = await Post.find({
+			content: { $not: /^RT\s+@/i },
+		}).sort({ publishedAt: -1 }).lean();
 		res.json(posts);
 	} catch (error) {
 		res.status(500).json({ error: 'Failed to fetch posts' });
@@ -88,6 +90,16 @@ app.get('/api/posts/:postId/timeseries', async (req, res) => {
 app.get('/api/overview', async (_req, res) => {
 	try {
 		const totals = await MetricSnapshot.aggregate([
+			{
+				$lookup: {
+					from: 'posts',
+					localField: 'post',
+					foreignField: '_id',
+					as: 'postDoc',
+				},
+			},
+			{ $unwind: '$postDoc' },
+			{ $match: { 'postDoc.content': { $not: /^RT\s+@/i } } },
 			{ $sort: { collectedAt: -1 } },
 			{
 				$group: {
