@@ -5,6 +5,8 @@ RUN npm ci
 COPY . .
 ARG VITE_API_BASE_URL=http://localhost:4000
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+ARG BASE_PATH=/
+ENV BASE_PATH=${BASE_PATH}
 RUN npm run build
 
 FROM nginx:1.27-alpine AS runner

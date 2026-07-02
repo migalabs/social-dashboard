@@ -8,18 +8,29 @@ services:
     environment:
       NODE_ENV: production
       PORT: 4000
-    ports:
-      - "4000:4000"
+    networks:
+      - caddy
     restart: unless-stopped
 
   frontend:
     build:
       context: ./frontend
       args:
-        VITE_API_BASE_URL: http://localhost:4000
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:4000}
+        BASE_PATH: ${BASE_PATH:-/social/}
     container_name: ml-social-frontend
     depends_on:
       - backend
-    ports:
-      - "8080:80"
+    networks:
+      - caddy
     restart: unless-stopped
+
+# Caddy runs as a container, so it reaches these services over a shared Docker
+# network by name (ml-social-frontend:80 / ml-social-backend:4000) — no host ports
+# are published. Set `name:` to the network Caddy is attached to (see:
+#   docker inspect caddy --format '{{range $k,$v := .NetworkSettings.Networks}}{{println $k}}{{end}}'
+# ).
+networks:
+  caddy:
+    external: true
+    name: caddy
