@@ -44,8 +44,8 @@
 
 .theme-fab:hover {
   transform: translateY(-1px);
-  border-color: rgba(255, 87, 41, 1);
-  background: rgba(255, 87, 41, 0.18);
+  border-color: rgba(243, 124, 26, 1);
+  background: rgba(243, 124, 26, 0.18);
   color: #ffffff;
 }
 
@@ -72,16 +72,16 @@
 }
 
 .nav-link:hover {
-  background: rgba(255, 87, 41, 0.40);
-  border-color: rgba(255, 87, 41, 1);
+  background: rgba(243, 124, 26, 0.40);
+  border-color: rgba(243, 124, 26, 1);
   color: #f8fafc;
 }
 
 .nav-link.is-active {
-  background: #e05d38;
+  background: #FF5729;
   color: #fff;
   border-color: rgba(255, 255, 255, 0.16);
-  box-shadow: 0 6px 14px rgba(255, 87, 41, 0.3);
+  box-shadow: 0 6px 14px rgba(243, 124, 26, 0.3);
 }
 
 .nav-link:focus-visible {
@@ -126,8 +126,8 @@
 
 .insights-hero-badge {
   border-radius: 0.9rem;
-  border: 1px solid #FF5729;
-  background-color: rgba(255, 87, 41, 0.14);
+  border: 1px solid #f37c1a;
+  background-color: rgba(243, 124, 26, 0.14);
   padding: 0.72rem 0.78rem;
 }
 
@@ -394,7 +394,7 @@
 }
 
 .pagination-button:hover:not(:disabled) {
-  border-color: rgba(255, 87, 41, 1);
+  border-color: rgba(243, 124, 26, 1);
   color: #ffffff;
 }
 
@@ -428,22 +428,22 @@ tbody tr {
 }
 
 tbody tr:hover {
-  background: rgba(255, 87, 41, 1);
+  background: rgba(243, 124, 26, 0.95);
 }
 
 tr.is-selected {
-  background: rgba(224, 93, 56, 0.18);
+  background: rgba(243, 124, 26, 0.18);
 }
 
 tr.is-top-post {
-  background: rgba(255, 143, 98, 0.14);
+  background: rgba(243, 124, 26, 0.14);
 }
 
 .table-pill {
   display: inline-flex;
   align-items: center;
-  border: 1px solid rgba(255, 143, 98, 0.78);
-  background: rgba(255, 143, 98, 0.18);
+  border: 1px solid rgba(243, 124, 26, 0.78);
+  background: rgba(243, 124, 26, 0.18);
   color: #ffd7cc;
   border-radius: 999px;
   padding: 0.14rem 0.55rem;
@@ -500,8 +500,8 @@ tr.is-top-post {
 .research-chip {
   display: inline-flex;
   align-items: center;
-  border: 1px solid rgba(255, 87, 41, 0.6);
-  background: rgba(255, 87, 41, 0.12);
+  border: 1px solid rgba(243, 124, 26, 0.6);
+  background: rgba(243, 124, 26, 0.12);
   color: #ffd7cc;
   border-radius: 999px;
   padding: 0.22rem 0.65rem;
@@ -572,13 +572,13 @@ tr.is-top-post {
 }
 
 :root[data-theme='light'] .top-nav {
-  background: var(--surface);
+  background: #DEDCDC;
   border-color: var(--border);
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
 
 :root[data-theme='light'] .theme-fab {
-  background: var(--surface);
+  background: #DEDCDC;
   border-color: var(--border);
   color: var(--text-primary);
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
