@@ -18,7 +18,7 @@ const postSchema = new mongoose.Schema(
     },
     source: {
       type: String,
-      enum: ['seed', 'twitterapi'],
+      enum: ['seed', 'twitterapi', 'linkedinapi'],
       required: true,
       default: 'seed',
       index: true,

@@ -105,6 +105,16 @@ type ResearchTrendsResponse = {
   }
 }
 
+type LinkedInAuthStatus = {
+  connected: boolean
+  provider: string
+  tokenType?: string
+  scope?: string
+  expiresAt?: string | null
+  lastRefreshedAt?: string | null
+  updatedAt?: string | null
+}
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000'
 const POSTS_PER_PAGE = 6
 type Page = 'insights' | 'linkedin' | 'x' | 'research'
@@ -165,6 +175,10 @@ function App() {
   const [researchData, setResearchData] = useState<ResearchTrendsResponse | null>(null)
   const [researchLoading, setResearchLoading] = useState(false)
   const [researchError, setResearchError] = useState('')
+  const [linkedinAuthStatus, setLinkedinAuthStatus] = useState<LinkedInAuthStatus | null>(null)
+  const [linkedinAuthLoading, setLinkedinAuthLoading] = useState(false)
+  const [linkedinAuthBusy, setLinkedinAuthBusy] = useState<'connect' | 'disconnect' | null>(null)
+  const [linkedinAuthError, setLinkedinAuthError] = useState('')
   const analyticsPanelRef = useRef<HTMLDivElement | null>(null)
   const chartGridColor = theme === 'dark' ? '#3d4354' : '#d7dfeb'
   const chartPalette = theme === 'dark'
@@ -332,6 +346,40 @@ function App() {
     }
   }, [])
 
+  useEffect(() => {
+    let isActive = true
+
+    async function loadLinkedInAuthStatus() {
+      setLinkedinAuthLoading(true)
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/linkedin/auth/status`)
+        if (!response.ok) {
+          throw new Error('Unable to load LinkedIn connection status.')
+        }
+
+        const payload = (await response.json()) as LinkedInAuthStatus
+        if (isActive) {
+          setLinkedinAuthStatus(payload)
+        }
+      } catch (statusError) {
+        if (isActive) {
+          setLinkedinAuthError(statusError instanceof Error ? statusError.message : 'Unknown error')
+        }
+      } finally {
+        if (isActive) {
+          setLinkedinAuthLoading(false)
+        }
+      }
+    }
+
+    loadLinkedInAuthStatus()
+
+    return () => {
+      isActive = false
+    }
+  }, [])
+
   const formatNumber = (value: number) => new Intl.NumberFormat('en-US').format(value)
 
   const formatDate = (value: string) =>
@@ -339,6 +387,88 @@ function App() {
       month: 'short',
       day: 'numeric',
     })
+
+  const formatDateTime = (value: string | null | undefined) => {
+    if (!value) {
+      return 'N/A'
+    }
+
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) {
+      return 'N/A'
+    }
+
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
+  async function refreshLinkedInStatus() {
+    setLinkedinAuthLoading(true)
+    setLinkedinAuthError('')
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/linkedin/auth/status`)
+      if (!response.ok) {
+        throw new Error('Unable to refresh LinkedIn status.')
+      }
+
+      const payload = (await response.json()) as LinkedInAuthStatus
+      setLinkedinAuthStatus(payload)
+    } catch (statusError) {
+      setLinkedinAuthError(statusError instanceof Error ? statusError.message : 'Unknown error')
+    } finally {
+      setLinkedinAuthLoading(false)
+    }
+  }
+
+  async function startLinkedInOAuth() {
+    setLinkedinAuthBusy('connect')
+    setLinkedinAuthError('')
+
+    try {
+      const state = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+      const response = await fetch(`${API_BASE_URL}/api/linkedin/auth/url?state=${encodeURIComponent(state)}`)
+      if (!response.ok) {
+        throw new Error('Unable to start LinkedIn OAuth flow.')
+      }
+
+      const payload = (await response.json()) as { authorizationUrl?: string }
+      if (!payload.authorizationUrl) {
+        throw new Error('LinkedIn authorization URL was not returned by backend.')
+      }
+
+      window.localStorage.setItem('linkedin-oauth-state', state)
+      window.location.assign(payload.authorizationUrl)
+    } catch (authError) {
+      setLinkedinAuthError(authError instanceof Error ? authError.message : 'Unknown error')
+      setLinkedinAuthBusy(null)
+    }
+  }
+
+  async function disconnectLinkedInOAuth() {
+    setLinkedinAuthBusy('disconnect')
+    setLinkedinAuthError('')
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/linkedin/auth/disconnect`, {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        throw new Error('Unable to disconnect LinkedIn account.')
+      }
+
+      await refreshLinkedInStatus()
+    } catch (disconnectError) {
+      setLinkedinAuthError(disconnectError instanceof Error ? disconnectError.message : 'Unknown error')
+    } finally {
+      setLinkedinAuthBusy(null)
+    }
+  }
 
   function enrichSeries(points: TimeseriesPoint[]): EnrichedPoint[] {
     return points.map((point) => {
@@ -1142,6 +1272,46 @@ function App() {
         <h1>{activePlatform === 'linkedin' ? 'LinkedIn Analytics' : 'X Analytics'}</h1>
         <p className="hero-copy">Platform-specific mock analytics feed with charted trends and engagement composition.</p>
       </header>
+
+      {activePlatform === 'linkedin' && (
+        <section className="panel linkedin-auth-panel" aria-label="LinkedIn API connection">
+          <div className="panel-title-row">
+            <h2>LinkedIn API Connection</h2>
+            <span>{linkedinAuthStatus?.connected ? 'Connected' : 'Not connected'}</span>
+          </div>
+          <div className="linkedin-auth-meta">
+            <span>Expires: {formatDateTime(linkedinAuthStatus?.expiresAt ?? null)}</span>
+            <span>Last refresh: {formatDateTime(linkedinAuthStatus?.lastRefreshedAt ?? null)}</span>
+          </div>
+          <div className="linkedin-auth-actions">
+            <button
+              type="button"
+              className="pagination-button"
+              onClick={startLinkedInOAuth}
+              disabled={linkedinAuthBusy !== null}
+            >
+              {linkedinAuthBusy === 'connect' ? 'Starting...' : 'Connect LinkedIn'}
+            </button>
+            <button
+              type="button"
+              className="pagination-button"
+              onClick={disconnectLinkedInOAuth}
+              disabled={linkedinAuthBusy !== null || !linkedinAuthStatus?.connected}
+            >
+              {linkedinAuthBusy === 'disconnect' ? 'Disconnecting...' : 'Disconnect'}
+            </button>
+            <button
+              type="button"
+              className="pagination-button"
+              onClick={refreshLinkedInStatus}
+              disabled={linkedinAuthLoading || linkedinAuthBusy !== null}
+            >
+              {linkedinAuthLoading ? 'Refreshing...' : 'Refresh status'}
+            </button>
+          </div>
+          {linkedinAuthError && <p className="error-text">{linkedinAuthError}</p>}
+        </section>
+      )}
 
       <section
         className={`overview-grid ${activePlatform === 'x' ? 'x-overview-grid' : ''}`}

@@ -14,6 +14,15 @@ const { twitterApiGet } = require('./services/twitterApi');
 const { syncTwitterHistory } = require('./services/twitterSync');
 const { getCryptoTrendAnalysis } = require('./services/twitterResearch');
 const { runLinkedInRetentionJob } = require('./services/linkedinRetention');
+const {
+	buildLinkedInAuthorizationUrl,
+	clearLinkedInToken,
+	exchangeAuthorizationCodeForToken,
+	getLinkedInAccessToken,
+	getLinkedInConnectionStatus,
+	linkedinApiGet,
+	upsertLinkedInToken,
+} = require('./services/linkedinApi');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -289,6 +298,112 @@ app.post('/api/linkedin/retention/run', async (_req, res) => {
 		return res.status(500).json({
 			error: 'LinkedIn retention job failed',
 			details: error.message,
+		});
+	}
+});
+
+app.get('/api/linkedin/auth/url', async (req, res) => {
+	try {
+		const scopeQuery = String(req.query.scope || '').trim();
+		const scopes = scopeQuery
+			? scopeQuery
+					.split(/[\s,]+/)
+					.map((scope) => scope.trim())
+					.filter(Boolean)
+			: undefined;
+		const result = buildLinkedInAuthorizationUrl({
+			state: req.query.state,
+			scopes,
+		});
+
+		return res.json(result);
+	} catch (error) {
+		return res.status(error.status || 500).json({
+			error: 'Failed to create LinkedIn authorization URL',
+			details: error.message,
+			upstream: error.upstream || null,
+		});
+	}
+});
+
+app.get('/api/linkedin/auth/callback', async (req, res) => {
+	try {
+		if (req.query.error) {
+			return res.status(400).json({
+				error: 'LinkedIn authorization denied',
+				errorType: req.query.error,
+				errorDescription: req.query.error_description || null,
+				state: req.query.state || null,
+			});
+		}
+
+		const tokenPayload = await exchangeAuthorizationCodeForToken({ code: req.query.code });
+		const persist = String(req.query.persist || 'true').trim().toLowerCase() !== 'false';
+		const tokenDoc = persist ? await upsertLinkedInToken(tokenPayload) : null;
+		return res.json({
+			state: req.query.state || null,
+			persisted: Boolean(tokenDoc),
+			connection: tokenDoc ? await getLinkedInConnectionStatus() : null,
+			tokenType: tokenPayload.token_type || null,
+			expiresIn: tokenPayload.expires_in || null,
+			accessToken: tokenPayload.access_token || null,
+			raw: tokenPayload,
+		});
+	} catch (error) {
+		return res.status(error.status || 500).json({
+			error: 'Failed to complete LinkedIn OAuth callback',
+			details: error.message,
+			upstream: error.upstream || null,
+		});
+	}
+});
+
+app.get('/api/linkedin/auth/status', async (_req, res) => {
+	try {
+		const status = await getLinkedInConnectionStatus();
+		return res.json(status);
+	} catch (error) {
+		return res.status(error.status || 500).json({
+			error: 'Failed to fetch LinkedIn auth status',
+			details: error.message,
+			upstream: error.upstream || null,
+		});
+	}
+});
+
+app.post('/api/linkedin/auth/disconnect', async (_req, res) => {
+	try {
+		const result = await clearLinkedInToken();
+		return res.json({
+			disconnected: result.removed,
+		});
+	} catch (error) {
+		return res.status(error.status || 500).json({
+			error: 'Failed to disconnect LinkedIn account',
+			details: error.message,
+			upstream: error.upstream || null,
+		});
+	}
+});
+
+app.get('/api/linkedin/me', async (req, res) => {
+	try {
+		const bearer = String(req.headers.authorization || '').trim();
+		const queryToken = String(req.query.accessToken || '').trim();
+		let accessToken = bearer.startsWith('Bearer ') ? bearer.slice('Bearer '.length) : queryToken;
+
+		if (!accessToken) {
+			const tokenResult = await getLinkedInAccessToken({ allowRefresh: true });
+			accessToken = tokenResult.accessToken;
+		}
+
+		const profile = await linkedinApiGet('/me', { accessToken });
+		return res.json(profile);
+	} catch (error) {
+		return res.status(error.status || 500).json({
+			error: 'Failed to fetch LinkedIn profile',
+			details: error.message,
+			upstream: error.upstream || null,
 		});
 	}
 });

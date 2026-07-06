@@ -8,7 +8,8 @@
     "start": "node src/index.js",
     "seed": "node src/scripts/seedFakeData.js",
     "sync:twitter": "node src/scripts/syncTwitterHistory.js",
-    "sync:twitter:research": "node src/scripts/syncTwitterResearchTrends.js"
+    "sync:twitter:research": "node src/scripts/syncTwitterResearchTrends.js",
+    "sync:linkedin": "node src/scripts/syncLinkedInHistory.js"
   },
   "keywords": [],
   "author": "",
@@ -19,6 +20,7 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "helmet": "^8.2.0",
+    "linkedin-api-client": "^0.3.0",
     "mongoose": "^9.7.0",
     "morgan": "^1.11.0"
   },

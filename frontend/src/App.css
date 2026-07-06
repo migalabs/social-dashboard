@@ -304,6 +304,25 @@
   font-size: 0.86rem;
 }
 
+.linkedin-auth-panel {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.linkedin-auth-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.2rem;
+  color: #99a1af;
+  font-size: 0.85rem;
+}
+
+.linkedin-auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
 .table-wrap {
   overflow-x: auto;
 }
