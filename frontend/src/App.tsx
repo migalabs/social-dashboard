@@ -167,42 +167,45 @@ function App() {
   const [researchError, setResearchError] = useState('')
   const analyticsPanelRef = useRef<HTMLDivElement | null>(null)
   const chartGridColor = theme === 'dark' ? '#3d4354' : '#d7dfeb'
+  const graphBlue = '#0052CC'
+  const graphGreen = '#00D084'
+  const graphViolet = '#8812FF'
   const chartPalette = theme === 'dark'
     ? {
-        impressionsBar: '#5f96f3',
-        engagementLine: '#ffb088',
-        impressionsAreaStroke: '#5f96f3',
-        impressionsAreaFill: '#11304d',
-        erAreaLine: '#ff8f62',
-        trendScoreBar: '#ff6a3d',
-        mentionsBar: '#f7a683',
-        tweetVolumeStroke: '#ff6a3d',
-        tweetVolumeFill: '#6b2519',
-        repostBar: '#5a97f5',
-        likesLine: '#fd966f',
-        repliesLine: '#7acb82',
-        viewsAreaStroke: '#28b6de',
-        viewsAreaFill: '#0f334b',
-        erAreaStroke: '#9e8cf0',
-        erAreaFill: '#342f56',
+        impressionsBar: graphBlue,
+        engagementLine: graphGreen,
+        impressionsAreaStroke: graphBlue,
+        impressionsAreaFill: 'rgba(0, 82, 204, 0.32)',
+        erAreaLine: graphGreen,
+        trendScoreBar: graphViolet,
+        mentionsBar: graphBlue,
+        tweetVolumeStroke: graphViolet,
+        tweetVolumeFill: 'rgba(136, 18, 255, 0.28)',
+        repostBar: graphBlue,
+        likesLine: graphViolet,
+        repliesLine: graphGreen,
+        viewsAreaStroke: graphBlue,
+        viewsAreaFill: 'rgba(0, 82, 204, 0.28)',
+        erAreaStroke: graphViolet,
+        erAreaFill: 'rgba(136, 18, 255, 0.22)',
       }
     : {
-        impressionsBar: '#2563eb',
-        engagementLine: '#b45309',
-        impressionsAreaStroke: '#2563eb',
-        impressionsAreaFill: '#bfdbfe',
-        erAreaLine: '#c2410c',
-        trendScoreBar: '#ea580c',
-        mentionsBar: '#fb923c',
-        tweetVolumeStroke: '#ea580c',
-        tweetVolumeFill: '#fed7aa',
-        repostBar: '#1d4ed8',
-        likesLine: '#ea580c',
-        repliesLine: '#16a34a',
-        viewsAreaStroke: '#0369a1',
-        viewsAreaFill: '#bae6fd',
-        erAreaStroke: '#7c3aed',
-        erAreaFill: '#ddd6fe',
+        impressionsBar: graphBlue,
+        engagementLine: graphGreen,
+        impressionsAreaStroke: graphBlue,
+        impressionsAreaFill: 'rgba(0, 82, 204, 0.18)',
+        erAreaLine: graphGreen,
+        trendScoreBar: graphViolet,
+        mentionsBar: graphBlue,
+        tweetVolumeStroke: graphViolet,
+        tweetVolumeFill: 'rgba(136, 18, 255, 0.14)',
+        repostBar: graphBlue,
+        likesLine: graphViolet,
+        repliesLine: graphGreen,
+        viewsAreaStroke: graphBlue,
+        viewsAreaFill: 'rgba(0, 82, 204, 0.16)',
+        erAreaStroke: graphViolet,
+        erAreaFill: 'rgba(136, 18, 255, 0.14)',
       }
 
   useEffect(() => {
@@ -984,26 +987,27 @@ function App() {
           </p>
         </header>
 
-        <section className="overview-grid" aria-label="Research overview cards">
-          <article className="metric-card">
+        <section className="overview-grid research-overview-grid" aria-label="Research overview cards">
+          <article className="metric-card research-kpi-card">
             <h2>Analyzed Tweets</h2>
             <p>{formatNumber(researchData?.analyzedTweets ?? 0)}</p>
             <small className="metric-subtext">From curated list feed</small>
           </article>
-          <article className="metric-card">
+          <article className="metric-card research-kpi-card">
             <h2>Window</h2>
             <p>{researchData?.window?.days ?? 7}d</p>
             <small className="metric-subtext">
               {researchData?.window?.from ? `${formatDate(researchData.window.from)} to ${formatDate(researchData.window.to)}` : 'Last 7 days'}
             </small>
           </article>
-          <article className="metric-card">
+          <article className="metric-card research-narrative-card">
             <h2>Top ETH Narrative</h2>
             <p className="metric-post-title">{trendRows[0]?.topic ?? 'No topic found'}</p>
-          </article>
-          <article className="metric-card">
-            <h2>Research List</h2>
-            <p className="metric-post-title">{researchData?.listId ?? '--'}</p>
+            <small className="metric-subtext">
+              {trendRows[0]
+                ? `${formatNumber(trendRows[0].mentionCount)} mentions • trend score ${trendRows[0].trendScore.toFixed(2)}`
+                : 'Narrative ranking will appear once trends are available'}
+            </small>
           </article>
         </section>
 

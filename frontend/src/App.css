@@ -13,7 +13,7 @@
   width: fit-content;
   margin: 0.4rem auto 0.15rem;
   padding: 0.45rem;
-  background: #1c2433;
+  background: var(--surface-strong);
   border: 1px solid #3d4354;
   border-radius: 999px;
   box-shadow: 0 10px 24px rgba(2, 6, 23, 0.32);
@@ -32,7 +32,7 @@
   justify-content: center;
   border: 1px solid #3d4354;
   border-radius: 999px;
-  background: #1c2433;
+  background: var(--surface-strong);
   color: #f3f4f6;
   font-size: 1.1rem;
   line-height: 1;
@@ -152,7 +152,7 @@
 }
 
 .insights-impact-card {
-  background: #2B2E3C;
+  background: var(--surface-strong);
 }
 
 .insights-post-list {
@@ -163,7 +163,7 @@
 .insights-post-item {
   border: 1px solid #3d4354;
   border-radius: 0.85rem;
-  background: #2B2E3C;
+  background: var(--surface-strong);
   padding: 0.72rem 0.78rem;
 }
 
@@ -226,10 +226,29 @@
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
+.research-overview-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.35fr);
+  align-items: stretch;
+}
+
+.research-kpi-card {
+  display: grid;
+  align-content: space-between;
+}
+
+.research-narrative-card {
+  border-color: rgba(243, 124, 26, 0.7);
+  background: linear-gradient(145deg, rgba(243, 124, 26, 0.24), rgba(255, 87, 41, 0.12));
+}
+
+.research-narrative-card .metric-post-title {
+  min-height: 2.7em;
+}
+
 .metric-card {
   border-radius: 1.1rem;
   padding: 1rem;
-  background: #2B2E3C;
+  background: var(--surface-strong);
   border: 1px solid #3d4354;
   box-shadow: none;
   animation: none;
@@ -278,7 +297,7 @@
 .panel {
   border-radius: 1.1rem;
   border: 1px solid #3d4354;
-  background: #2B2E3C;
+  background: var(--surface-strong);
   backdrop-filter: none;
   padding: 1rem;
   box-shadow: none;
@@ -319,7 +338,7 @@
   padding: 0.9rem 0.95rem;
   border-radius: 0.95rem;
   border: 1px solid #3d4354;
-  background: #2B2E3C;
+  background: var(--surface-strong);
   color: inherit;
   cursor: pointer;
   transition: border-color 0.15s ease, background-color 0.15s ease;
@@ -341,7 +360,7 @@
 
 .compact-post-card.is-top-post-card {
   border-color: #3d4354;
-  background: #2B2E3C;
+  background: var(--surface-strong);
 }
 
 .compact-post-card:focus-visible {
@@ -518,7 +537,7 @@ tr.is-top-post {
 .research-tweet-card {
   border: 1px solid #3d4354;
   border-radius: 0.95rem;
-  background: #2B2E3C;
+  background: var(--surface-strong);
   padding: 0.9rem;
 }
 
@@ -650,6 +669,11 @@ tr.is-top-post {
   color: #9a3412;
 }
 
+:root[data-theme='light'] .research-narrative-card {
+  border-color: rgba(224, 93, 56, 0.5);
+  background: linear-gradient(145deg, rgba(255, 143, 98, 0.24), rgba(255, 87, 41, 0.14));
+}
+
 :root[data-theme='light'] th,
 :root[data-theme='light'] td,
 :root[data-theme='light'] .compact-post-card,
@@ -691,6 +715,10 @@ tr.is-top-post {
 
 @media (max-width: 1024px) {
   .overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .research-overview-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -749,6 +777,10 @@ tr.is-top-post {
   }
 
   .overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .research-overview-grid {
     grid-template-columns: 1fr;
   }
 

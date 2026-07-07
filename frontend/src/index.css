@@ -2,9 +2,9 @@
 
 :root {
   --theme-name: dark;
-  --bg: #12131A;
-  --surface: #1c2433;
-  --surface-elevated: #2a3040;
+  --bg: #000000;
+  --surface: #1A1F29;
+  --surface-elevated: #1A1F29;
   --border: #3d4354;
   --text-primary: #f3f4f6;
   --text-secondary: #a3a3a3;
@@ -13,7 +13,7 @@
   --nav-text: #d1d5dc;
   --accent: #ff5729;
   --accent-soft: #ff8a65;
-  --surface-strong: #2B2E3C;
+  --surface-strong: #1A1F29;
   --surface-soft: rgba(255, 87, 41, 0.32);
   --signal-blue: #5f96f3;
   --signal-cyan: #00aad0;
@@ -32,10 +32,10 @@
 
 :root[data-theme='light'] {
   --theme-name: light;
-  --bg: #f4f7fb;
-  --surface: #ffffff;
-  --surface-elevated: #fbfcfe;
-  --surface-strong: #ffffff;
+  --bg: #FFFFFF;
+  --surface: #DEDCDC;
+  --surface-elevated: #DEDCDC;
+  --surface-strong: #DEDCDC;
   --surface-soft: rgba(255, 87, 41, 0.16);
   --border: #d7dfeb;
   --text-primary: #111827;
