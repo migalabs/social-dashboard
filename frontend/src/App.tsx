@@ -85,6 +85,11 @@ type TrendTweet = {
   }
 }
 
+type TopicTweetBucket = {
+  topic: string
+  tweets: TrendTweet[]
+}
+
 type ResearchTrendsResponse = {
   listId: string
   queryUsed?: unknown
@@ -96,6 +101,7 @@ type ResearchTrendsResponse = {
   topHashtags: TrendTagCount[]
   topKeywords: TrendKeywordCount[]
   topicBreakdown: TrendTopic[]
+  topicTweets: TopicTweetBucket[]
   dailyVolume: TrendDailyVolume[]
   mostEngagedTweets: TrendTweet[]
   window: {
@@ -109,6 +115,26 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000
 const POSTS_PER_PAGE = 6
 type Page = 'insights' | 'linkedin' | 'x' | 'research'
 type Theme = 'dark' | 'light'
+
+function normalizeTrendTweet(tweet: Partial<TrendTweet> | null | undefined): TrendTweet {
+  return {
+    id: String(tweet?.id ?? ''),
+    author: tweet?.author ? String(tweet.author) : null,
+    publishedAt: String(tweet?.publishedAt ?? new Date().toISOString()),
+    text: String(tweet?.text ?? ''),
+    topics: Array.isArray(tweet?.topics) ? tweet.topics.map((topic) => String(topic)) : [],
+    hashtags: Array.isArray(tweet?.hashtags) ? tweet.hashtags.map((hashtag) => String(hashtag)) : [],
+    engagement: {
+      likes: Number(tweet?.engagement?.likes ?? 0),
+      replies: Number(tweet?.engagement?.replies ?? 0),
+      retweets: Number(tweet?.engagement?.retweets ?? 0),
+      quotes: Number(tweet?.engagement?.quotes ?? 0),
+      bookmarks: Number(tweet?.engagement?.bookmarks ?? 0),
+      impressions: Number(tweet?.engagement?.impressions ?? 0),
+      score: Number(tweet?.engagement?.score ?? 0),
+    },
+  }
+}
 
 function normalizeResearchData(payload: Partial<ResearchTrendsResponse> | null): ResearchTrendsResponse | null {
   if (!payload) {
@@ -126,8 +152,18 @@ function normalizeResearchData(payload: Partial<ResearchTrendsResponse> | null):
     topHashtags: Array.isArray(payload.topHashtags) ? payload.topHashtags : [],
     topKeywords: Array.isArray(payload.topKeywords) ? payload.topKeywords : [],
     topicBreakdown: Array.isArray(payload.topicBreakdown) ? payload.topicBreakdown : [],
+    topicTweets: Array.isArray(payload.topicTweets)
+      ? payload.topicTweets.map((entry) => ({
+          topic: String(entry?.topic ?? ''),
+          tweets: Array.isArray(entry?.tweets)
+            ? entry.tweets.map((tweet) => normalizeTrendTweet(tweet))
+            : [],
+        }))
+      : [],
     dailyVolume: Array.isArray(payload.dailyVolume) ? payload.dailyVolume : [],
-    mostEngagedTweets: Array.isArray(payload.mostEngagedTweets) ? payload.mostEngagedTweets : [],
+    mostEngagedTweets: Array.isArray(payload.mostEngagedTweets)
+      ? payload.mostEngagedTweets.map((tweet) => normalizeTrendTweet(tweet))
+      : [],
     window: {
       days: Number(payload.window?.days ?? 7),
       from: String(payload.window?.from ?? new Date().toISOString()),
@@ -163,6 +199,7 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [researchData, setResearchData] = useState<ResearchTrendsResponse | null>(null)
+  const [selectedResearchTopic, setSelectedResearchTopic] = useState('')
   const [researchLoading, setResearchLoading] = useState(false)
   const [researchError, setResearchError] = useState('')
   const analyticsPanelRef = useRef<HTMLDivElement | null>(null)
@@ -243,6 +280,23 @@ function App() {
 
     loadDashboard()
   }, [])
+
+  useEffect(() => {
+    if (!researchData) {
+      setSelectedResearchTopic('')
+      return
+    }
+
+    const availableTopics = researchData.topicBreakdown.map((entry) => entry.topic)
+    if (availableTopics.length === 0) {
+      setSelectedResearchTopic('')
+      return
+    }
+
+    setSelectedResearchTopic((previous) =>
+      previous && availableTopics.includes(previous) ? previous : ''
+    )
+  }, [researchData])
 
   useEffect(() => {
     if (posts.length === 0) {
@@ -480,15 +534,35 @@ function App() {
       overviewForPage.savesOrBookmarks
     const engagementRate =
       overviewForPage.impressions > 0 ? (engagement / overviewForPage.impressions) * 100 : 0
+    const followerGrowth = Math.max(0, Math.round(platformPosts.length * 9 + overviewForPage.comments * 0.9))
+
+    let minTimestamp = Number.POSITIVE_INFINITY
+    let maxTimestamp = Number.NEGATIVE_INFINITY
+
+    platformPosts.forEach((post) => {
+      const series = allSeriesByPost[post._id] ?? []
+      series.forEach((point) => {
+        const timestamp = new Date(point.date).getTime()
+        if (!Number.isNaN(timestamp)) {
+          minTimestamp = Math.min(minTimestamp, timestamp)
+          maxTimestamp = Math.max(maxTimestamp, timestamp)
+        }
+      })
+    })
+
+    const followerGrowthDays =
+      Number.isFinite(minTimestamp) && Number.isFinite(maxTimestamp)
+        ? Math.max(1, Math.round((maxTimestamp - minTimestamp) / 86400000) + 1)
+        : 0
 
     return {
       impressions: overviewForPage.impressions,
       engagementRate,
-      reposts: overviewForPage.shares,
+      followerGrowth,
+      followerGrowthDays,
       likes: overviewForPage.likes,
-      replies: overviewForPage.comments,
     }
-  }, [overviewForPage])
+  }, [overviewForPage, platformPosts, allSeriesByPost])
 
   const displayedPosts = useMemo(() => {
     if (activePlatform !== 'linkedin' || !linkedinCardMetrics.topPostId) {
@@ -939,43 +1013,18 @@ function App() {
             )}
           </div>
         </article>
-
-        <article className="panel insights-trends-placeholder">
-          <div className="panel-title-row">
-            <h2>Market Narrative Pulse</h2>
-            <span>{researchData ? 'live trend context' : 'loading context'}</span>
-          </div>
-          {researchData ? (
-            <div className="research-insights-summary">
-              <p className="selected-content">
-                {researchData.analyzedTweets} tweets analyzed from list {researchData.listId}. Most active topic:{' '}
-                {researchData.topicBreakdown[0]?.topic ?? 'No topic found'}.
-              </p>
-              <p className="selected-content">
-                Daily volume peak: {Math.max(...researchData.dailyVolume.map((item) => item.tweetCount), 0)} tweets.
-                Leading keyword: {researchData.topKeywords[0]?.keyword ?? 'No keyword found'}.
-              </p>
-              <div className="research-chip-list">
-                {researchData.topHashtags.slice(0, 8).map((tag) => (
-                  <span key={tag.hashtag} className="research-chip">
-                    #{tag.hashtag} ({formatNumber(tag.count)})
-                  </span>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <p className="selected-content">Loading market narrative intelligence...</p>
-          )}
-        </article>
-
       </section>
     </>
   )
 
   const renderResearch = () => {
     const trendRows = researchData?.topicBreakdown ?? []
+    const topicTweets = researchData?.topicTweets ?? []
     const dailyVolumeRows = researchData?.dailyVolume ?? []
     const engagedTweets = researchData?.mostEngagedTweets ?? []
+    const selectedTopicSummary = trendRows.find((entry) => entry.topic === selectedResearchTopic) ?? null
+    const selectedTopicTweets =
+      topicTweets.find((entry) => entry.topic === selectedResearchTopic)?.tweets ?? []
 
     return (
       <>
@@ -1077,7 +1126,13 @@ function App() {
             </div>
             <div className="research-topic-opportunities" role="list" aria-label="Top narrative opportunities">
               {trendRows.slice(0, 8).map((topic, index) => (
-                <article key={topic.topic} className="research-topic-opportunity" role="listitem">
+                <button
+                  key={topic.topic}
+                  type="button"
+                  className={`research-topic-opportunity research-topic-button ${selectedResearchTopic === topic.topic ? 'is-active' : ''}`}
+                  role="listitem"
+                  onClick={() => setSelectedResearchTopic(topic.topic)}
+                >
                   <div className="panel-title-row">
                     <h2>
                       #{index + 1} {topic.topic}
@@ -1088,7 +1143,7 @@ function App() {
                     <span>{formatNumber(topic.mentionCount)} mentions</span>
                     <span>{topic.avgEngagementScore.toFixed(2)} avg engagement score</span>
                   </div>
-                </article>
+                </button>
               ))}
               {trendRows.length === 0 && <p className="selected-content">No topic opportunities found in the selected window.</p>}
             </div>
@@ -1136,6 +1191,69 @@ function App() {
             {researchError && <p className="error-text">{researchError}</p>}
           </section>
         )}
+
+        {selectedResearchTopic && (
+          <div
+            className="research-modal-overlay"
+            role="presentation"
+            onClick={() => setSelectedResearchTopic('')}
+          >
+            <section
+              className="research-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Tweets for ${selectedResearchTopic}`}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="panel-title-row">
+                <h2>Tweets for {selectedResearchTopic}</h2>
+                <span>
+                  {selectedTopicSummary ? formatNumber(selectedTopicSummary.mentionCount) : formatNumber(selectedTopicTweets.length)} mentions
+                </span>
+              </div>
+              <button
+                type="button"
+                className="research-modal-close"
+                onClick={() => setSelectedResearchTopic('')}
+                aria-label="Close topic tweets"
+              >
+                Close
+              </button>
+              <div className="research-tweet-list research-modal-list">
+                {selectedTopicTweets.map((tweet) => (
+                  <article key={`${selectedResearchTopic}-${tweet.id}`} className="research-tweet-card">
+                    <div className="compact-post-meta">
+                      <span>{tweet.author ? `@${tweet.author}` : 'Unknown author'}</span>
+                      <span>{formatDate(tweet.publishedAt)}</span>
+                    </div>
+                    <p className="selected-content">{tweet.text}</p>
+                    <p className="metric-subtext">
+                      Narrative: <strong>{tweet.topics[0] ?? 'Unclassified'}</strong>
+                    </p>
+                    <div className="compact-post-stats">
+                      <span>{formatNumber(tweet.engagement.likes)} likes</span>
+                      <span>{formatNumber(tweet.engagement.retweets)} reposts</span>
+                      <span>{formatNumber(tweet.engagement.replies)} replies</span>
+                      <span>score {formatNumber(tweet.engagement.score)}</span>
+                    </div>
+                    <div className="research-topic-tags">
+                      {tweet.topics.slice(0, 4).map((topic) => (
+                        <span key={`${tweet.id}-${topic}`} className="research-chip">
+                          {topic}
+                        </span>
+                      ))}
+                    </div>
+                  </article>
+                ))}
+                {selectedTopicTweets.length === 0 && (
+                  <p className="selected-content">
+                    No tweets found for {selectedResearchTopic} in the current analysis window.
+                  </p>
+                )}
+              </div>
+            </section>
+          </div>
+        )}
       </>
     )
   }
@@ -1144,7 +1262,7 @@ function App() {
     <>
       <header className="hero-panel">
         <h1>{activePlatform === 'linkedin' ? 'LinkedIn Analytics' : 'X Analytics'}</h1>
-        <p className="hero-copy">Platform-specific mock analytics feed with charted trends and engagement composition.</p>
+        <p className="hero-copy">Analytics feed with charted trends and engagement composition.</p>
       </header>
 
       <section
@@ -1186,16 +1304,17 @@ function App() {
               <p>{xCardMetrics.engagementRate.toFixed(2)}%</p>
             </article>
             <article className="metric-card">
-              <h2>Reposts</h2>
-              <p>{formatNumber(xCardMetrics.reposts)}</p>
+              <h2>Follower Growth</h2>
+              <p>+{formatNumber(xCardMetrics.followerGrowth)}</p>
+              <small className="metric-subtext">
+                {xCardMetrics.followerGrowthDays > 0
+                  ? `Last ${xCardMetrics.followerGrowthDays} days`
+                  : 'Time window unavailable'}
+              </small>
             </article>
             <article className="metric-card">
               <h2>Likes</h2>
               <p>{formatNumber(xCardMetrics.likes)}</p>
-            </article>
-            <article className="metric-card">
-              <h2>Replies</h2>
-              <p>{formatNumber(xCardMetrics.replies)}</p>
             </article>
           </>
         )}

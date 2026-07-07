@@ -667,6 +667,22 @@ function analyzeTweetsForCryptoTrends(rawTweets, { windowDays = DEFAULT_WINDOW_D
       engagement: tweet.engagement,
     }));
 
+  const topicTweets = rankedTopics.map((entry) => ({
+    topic: entry.name,
+    tweets: analyzedTweets
+      .filter((tweet) => tweet.topics.includes(entry.name))
+      .sort((a, b) => b.engagement.weightedTrendScore - a.engagement.weightedTrendScore)
+      .map((tweet) => ({
+        id: tweet.id,
+        author: tweet.author,
+        publishedAt: tweet.publishedAt,
+        text: tweet.text,
+        topics: tweet.topics,
+        hashtags: tweet.hashtags,
+        engagement: tweet.engagement,
+      })),
+  }));
+
   const dailyVolumeMap = new Map();
   analyzedTweets.forEach((tweet) => {
     const dayKey = toIsoDay(tweet.publishedAt);
@@ -691,6 +707,7 @@ function analyzeTweetsForCryptoTrends(rawTweets, { windowDays = DEFAULT_WINDOW_D
     unifiedTrendingEntities,
     dailyVolume,
     mostEngagedTweets,
+    topicTweets,
   };
 }
 

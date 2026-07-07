@@ -214,11 +214,17 @@ app.get('/api/twitter/research/trends', async (req, res) => {
 			});
 		}
 
+		const forceRefresh = ['1', 'true', 'yes'].includes(
+			String(req.query.forceRefresh || '').trim().toLowerCase()
+		);
+
 		const latestSnapshot = await TwitterResearchSnapshot.findOne({ listId: String(listId).trim() })
 			.sort({ generatedAt: -1 })
 			.lean();
+		const latestHasTopicTweets =
+			Array.isArray(latestSnapshot?.topicTweets) && latestSnapshot.topicTweets.length > 0;
 
-		if (latestSnapshot) {
+		if (latestSnapshot && latestHasTopicTweets && !forceRefresh) {
 			return res.json(latestSnapshot);
 		}
 
@@ -236,6 +242,7 @@ app.get('/api/twitter/research/trends', async (req, res) => {
 			topicBreakdown: result.topicBreakdown,
 			dailyVolume: result.dailyVolume,
 			mostEngagedTweets: result.mostEngagedTweets,
+			topicTweets: result.topicTweets,
 			generatedAt: new Date(),
 		});
 		return res.json(result);

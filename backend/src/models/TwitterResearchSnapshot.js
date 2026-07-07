@@ -55,6 +55,17 @@ const researchTweetSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const researchTopicTweetsSchema = new mongoose.Schema(
+  {
+    topic: { type: String, required: true },
+    tweets: {
+      type: [researchTweetSchema],
+      default: [],
+    },
+  },
+  { _id: false }
+);
+
 const twitterResearchSnapshotSchema = new mongoose.Schema(
   {
     listId: {
@@ -99,6 +110,10 @@ const twitterResearchSnapshotSchema = new mongoose.Schema(
     },
     mostEngagedTweets: {
       type: [researchTweetSchema],
+      default: [],
+    },
+    topicTweets: {
+      type: [researchTopicTweetsSchema],
       default: [],
     },
     generatedAt: {

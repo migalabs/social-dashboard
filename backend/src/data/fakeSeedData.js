@@ -3,12 +3,12 @@ function randomInt(min, max) {
 }
 
 function simulateLinkedInElement(previous, organizationUrn) {
-  const uniqueImpressionsCount = previous.uniqueImpressionsCount + randomInt(10, 120);
-  const clickCount = previous.clickCount + randomInt(12, 180);
-  const likeCount = previous.likeCount + randomInt(1, 18);
-  const commentCount = previous.commentCount + randomInt(0, 6);
-  const shareCount = previous.shareCount + randomInt(0, 3);
-  const impressionCount = previous.impressionCount + randomInt(40, 420);
+  const uniqueImpressionsCount = previous.uniqueImpressionsCount + randomInt(1, 5);
+  const clickCount = previous.clickCount + randomInt(0, 2);
+  const likeCount = previous.likeCount + randomInt(0, 2);
+  const commentCount = previous.commentCount + randomInt(0, 1);
+  const shareCount = previous.shareCount + randomInt(0, 1);
+  const impressionCount = previous.impressionCount + randomInt(8, 32);
 
   const engagement = Number(
     ((likeCount + commentCount + shareCount + clickCount) / Math.max(impressionCount, 1)).toFixed(6)
@@ -133,12 +133,12 @@ function generateFakePosts() {
       organizationalEntity: 'urn:li:organization:151279',
       publishedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 18),
       baseline: {
-        uniqueImpressionsCount: 927,
-        clickCount: 10976,
-        likeCount: 31,
-        commentCount: 23,
-        shareCount: 2,
-        impressionCount: 34416,
+        uniqueImpressionsCount: 18,
+        clickCount: 8,
+        likeCount: 6,
+        commentCount: 3,
+        shareCount: 1,
+        impressionCount: 64,
       },
     },
     {
@@ -150,12 +150,12 @@ function generateFakePosts() {
       organizationalEntity: 'urn:li:organization:151279',
       publishedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 12),
       baseline: {
-        uniqueImpressionsCount: 615,
-        clickCount: 7820,
-        likeCount: 22,
-        commentCount: 11,
+        uniqueImpressionsCount: 14,
+        clickCount: 6,
+        likeCount: 4,
+        commentCount: 2,
         shareCount: 1,
-        impressionCount: 21104,
+        impressionCount: 52,
       },
     },
   ];
@@ -184,12 +184,12 @@ function generateFakePosts() {
       organizationalEntity: 'urn:li:organization:151279',
       publishedAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * (5 + index * 2)),
       baseline: {
-        uniqueImpressionsCount: 520 + index * 85 + randomInt(0, 80),
-        clickCount: 5900 + index * 920 + randomInt(0, 700),
-        likeCount: 16 + index * 4 + randomInt(0, 8),
-        commentCount: 6 + index * 2 + randomInt(0, 5),
-        shareCount: 1 + Math.floor(index / 3) + randomInt(0, 2),
-        impressionCount: 16500 + index * 2150 + randomInt(0, 2200),
+        uniqueImpressionsCount: 12 + index * 3 + randomInt(0, 4),
+        clickCount: 8 + index * 2 + randomInt(0, 3),
+        likeCount: 3 + index * 1 + randomInt(0, 3),
+        commentCount: 1 + Math.floor(index / 2) + randomInt(0, 1),
+        shareCount: 1 + Math.floor(index / 4) + randomInt(0, 1),
+        impressionCount: 54 + index * 18 + randomInt(0, 14),
       },
     });
   });

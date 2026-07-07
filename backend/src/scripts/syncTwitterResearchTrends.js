@@ -29,6 +29,7 @@ async function run() {
     topicBreakdown: result.topicBreakdown,
     dailyVolume: result.dailyVolume,
     mostEngagedTweets: result.mostEngagedTweets,
+    topicTweets: result.topicTweets,
     generatedAt: new Date(),
   });
 

@@ -223,7 +223,7 @@
 }
 
 .x-overview-grid {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .research-overview-grid {
@@ -560,9 +560,95 @@ tr.is-top-post {
   background: rgba(255, 87, 41, 0.08);
 }
 
+.research-topic-button {
+  width: 100%;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background-color 0.16s ease;
+}
+
+.research-topic-button:hover,
+.research-topic-button:focus-visible,
+.research-topic-button.is-active {
+  border-color: rgba(255, 87, 41, 0.95);
+  background: rgba(255, 87, 41, 0.2);
+}
+
+.research-topic-button:focus-visible {
+  outline: 2px solid #ff5729;
+  outline-offset: 2px;
+}
+
+.research-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.research-modal {
+  position: relative;
+  width: min(1020px, 100%);
+  max-height: calc(100svh - 2rem);
+  overflow-y: auto;
+  border: 1px solid #3d4354;
+  border-radius: 1rem;
+  background: var(--surface-strong);
+  padding: 1rem;
+}
+
+.research-modal-list {
+  margin-top: 0.8rem;
+}
+
+.research-modal-close {
+  position: absolute;
+  top: 0.9rem;
+  right: 0.9rem;
+  border: 1px solid #3d4354;
+  background: rgba(255, 87, 41, 0.16);
+  color: var(--text-primary);
+  border-radius: 0.6rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.research-modal-close:hover,
+.research-modal-close:focus-visible {
+  border-color: rgba(255, 87, 41, 0.95);
+  background: rgba(255, 87, 41, 0.24);
+}
+
+.research-modal-close:focus-visible {
+  outline: 2px solid #ff5729;
+  outline-offset: 2px;
+}
+
 :root[data-theme='light'] .research-topic-opportunity {
   border-color: var(--border);
   background: rgba(255, 87, 41, 0.12);
+}
+
+:root[data-theme='light'] .research-topic-button:hover,
+:root[data-theme='light'] .research-topic-button:focus-visible,
+:root[data-theme='light'] .research-topic-button.is-active {
+  border-color: rgba(224, 93, 56, 0.85);
+  background: rgba(255, 87, 41, 0.18);
+}
+
+:root[data-theme='light'] .research-modal-overlay {
+  background: rgba(15, 23, 42, 0.55);
+}
+
+:root[data-theme='light'] .research-modal-close {
+  border-color: var(--border);
+  background: rgba(255, 87, 41, 0.14);
 }
 
 .recharts-tooltip-wrapper {
@@ -804,5 +890,14 @@ tr.is-top-post {
 
   .chart-wrap {
     height: 270px;
+  }
+
+  .research-modal-overlay {
+    padding: 0.55rem;
+  }
+
+  .research-modal {
+    max-height: calc(100svh - 1.1rem);
+    padding: 0.8rem;
   }
 }
