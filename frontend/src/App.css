@@ -602,6 +602,10 @@ tr.is-top-post {
   padding: 1rem;
 }
 
+.research-modal .panel-title-row span {
+  padding-right: 5.2rem;
+}
+
 .research-modal-list {
   margin-top: 0.8rem;
 }
