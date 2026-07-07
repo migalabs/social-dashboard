@@ -9,6 +9,7 @@ const connectToDatabase = require('./config/db');
 const Post = require('./models/Post');
 const MetricSnapshot = require('./models/MetricSnapshot');
 const TwitterResearchSnapshot = require('./models/TwitterResearchSnapshot');
+const TwitterAccountSnapshot = require('./models/TwitterAccountSnapshot');
 const LinkedInMonthlySnapshot = require('./models/LinkedInMonthlySnapshot');
 const { twitterApiGet } = require('./services/twitterApi');
 const { syncTwitterHistory } = require('./services/twitterSync');
@@ -274,6 +275,116 @@ app.get('/api/twitter/research/latest', async (_req, res) => {
 			error: 'Failed to fetch latest Twitter research snapshot',
 			details: error.message,
 			upstream: error.upstream || null,
+		});
+	}
+});
+
+app.get('/api/twitter/followers/growth', async (req, res) => {
+	try {
+		const requestedDays = Number(req.query.days || 30);
+		const days = Number.isFinite(requestedDays)
+			? Math.min(365, Math.max(1, Math.round(requestedDays)))
+			: 30;
+
+		const requestedHandles = String(req.query.handles || '')
+			.split(',')
+			.map((handle) => handle.trim().replace(/^@/, '').toLowerCase())
+			.filter(Boolean);
+
+		const handles =
+			requestedHandles.length > 0
+				? Array.from(new Set(requestedHandles))
+				: await Post.distinct('accountHandle', {
+					platform: 'x',
+					accountHandle: { $ne: '' },
+				});
+
+		if (handles.length === 0) {
+			return res.json({
+				days,
+				totalGrowth: 0,
+				from: null,
+				to: null,
+				handles: [],
+			});
+		}
+
+		const now = new Date();
+		const startBound = new Date(now);
+		startBound.setUTCDate(startBound.getUTCDate() - days);
+
+		const handleRows = [];
+
+		for (const handle of handles) {
+			const windowSnapshots = await TwitterAccountSnapshot.find({
+				accountHandle: handle,
+				collectedAt: { $gte: startBound, $lte: now },
+			})
+				.sort({ collectedAt: 1 })
+				.lean();
+
+			if (windowSnapshots.length < 2) {
+				continue;
+			}
+
+			const baselineSnapshot = windowSnapshots[0];
+			const latestSnapshot = windowSnapshots[windowSnapshots.length - 1];
+
+			const growth = Number(latestSnapshot.followersCount || 0) - Number(baselineSnapshot.followersCount || 0);
+			const observedDays = Math.max(
+				1,
+				Math.round(
+					(new Date(latestSnapshot.collectedAt).getTime() -
+						new Date(baselineSnapshot.collectedAt).getTime()) /
+						86400000
+				) + 1
+			);
+
+			handleRows.push({
+				handle,
+				growth,
+				previousFollowers: Number(baselineSnapshot.followersCount || 0),
+				latestFollowers: Number(latestSnapshot.followersCount || 0),
+				from: baselineSnapshot.collectedAt,
+				to: latestSnapshot.collectedAt,
+				days: observedDays,
+			});
+		}
+
+		if (handleRows.length === 0) {
+			return res.json({
+				days,
+				totalGrowth: 0,
+				from: null,
+				to: null,
+				handles: [],
+			});
+		}
+
+		const totalGrowth = handleRows.reduce((sum, row) => sum + row.growth, 0);
+		const from = handleRows
+			.map((row) => new Date(row.from).getTime())
+			.reduce((min, value) => Math.min(min, value), Number.POSITIVE_INFINITY);
+		const to = handleRows
+			.map((row) => new Date(row.to).getTime())
+			.reduce((max, value) => Math.max(max, value), Number.NEGATIVE_INFINITY);
+		const observedDays =
+			Number.isFinite(from) && Number.isFinite(to)
+				? Math.max(1, Math.round((to - from) / 86400000) + 1)
+				: 0;
+
+		return res.json({
+			days,
+			totalGrowth,
+			from: Number.isFinite(from) ? new Date(from).toISOString() : null,
+			to: Number.isFinite(to) ? new Date(to).toISOString() : null,
+			observedDays,
+			handles: handleRows,
+		});
+	} catch (error) {
+		return res.status(500).json({
+			error: 'Failed to fetch Twitter follower growth',
+			details: error.message,
 		});
 	}
 });

@@ -111,8 +111,26 @@ type ResearchTrendsResponse = {
   }
 }
 
+type XFollowerGrowthResponse = {
+  days: number
+  observedDays: number
+  totalGrowth: number
+  from: string | null
+  to: string | null
+  handles: Array<{
+    handle: string
+    growth: number
+    previousFollowers: number
+    latestFollowers: number
+    from: string
+    to: string
+    days: number
+  }>
+}
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000'
 const POSTS_PER_PAGE = 6
+const X_FOLLOWER_GROWTH_WINDOW_DAYS = 7
 type Page = 'insights' | 'linkedin' | 'x' | 'research'
 type Theme = 'dark' | 'light'
 
@@ -199,6 +217,7 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [researchData, setResearchData] = useState<ResearchTrendsResponse | null>(null)
+  const [xFollowerGrowth, setXFollowerGrowth] = useState<XFollowerGrowthResponse | null>(null)
   const [selectedResearchTopic, setSelectedResearchTopic] = useState('')
   const [researchLoading, setResearchLoading] = useState(false)
   const [researchError, setResearchError] = useState('')
@@ -328,6 +347,52 @@ function App() {
     }
 
     loadAllSeries()
+  }, [posts])
+
+  useEffect(() => {
+    let isActive = true
+
+    async function loadXFollowerGrowth() {
+      const hasXPosts = posts.some((post) => post.platform === 'x')
+
+      if (!hasXPosts) {
+        if (isActive) {
+          setXFollowerGrowth(null)
+        }
+        return
+      }
+
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/api/twitter/followers/growth?days=${X_FOLLOWER_GROWTH_WINDOW_DAYS}`,
+          {
+            cache: 'no-store',
+            headers: {
+              'Cache-Control': 'no-cache',
+            },
+          }
+        )
+
+        if (!response.ok) {
+          throw new Error('Unable to load X follower growth.')
+        }
+
+        const payload = (await response.json()) as XFollowerGrowthResponse
+        if (isActive) {
+          setXFollowerGrowth(payload)
+        }
+      } catch {
+        if (isActive) {
+          setXFollowerGrowth(null)
+        }
+      }
+    }
+
+    loadXFollowerGrowth()
+
+    return () => {
+      isActive = false
+    }
   }, [posts])
 
   useEffect(() => {
@@ -534,26 +599,12 @@ function App() {
       overviewForPage.savesOrBookmarks
     const engagementRate =
       overviewForPage.impressions > 0 ? (engagement / overviewForPage.impressions) * 100 : 0
-    const followerGrowth = Math.max(0, Math.round(platformPosts.length * 9 + overviewForPage.comments * 0.9))
-
-    let minTimestamp = Number.POSITIVE_INFINITY
-    let maxTimestamp = Number.NEGATIVE_INFINITY
-
-    platformPosts.forEach((post) => {
-      const series = allSeriesByPost[post._id] ?? []
-      series.forEach((point) => {
-        const timestamp = new Date(point.date).getTime()
-        if (!Number.isNaN(timestamp)) {
-          minTimestamp = Math.min(minTimestamp, timestamp)
-          maxTimestamp = Math.max(maxTimestamp, timestamp)
-        }
-      })
-    })
-
-    const followerGrowthDays =
-      Number.isFinite(minTimestamp) && Number.isFinite(maxTimestamp)
-        ? Math.max(1, Math.round((maxTimestamp - minTimestamp) / 86400000) + 1)
-        : 0
+    const followerGrowth = Number.isFinite(Number(xFollowerGrowth?.totalGrowth))
+      ? Number(xFollowerGrowth?.totalGrowth)
+      : 0
+    const followerGrowthDays = Number.isFinite(Number(xFollowerGrowth?.days))
+      ? Number(xFollowerGrowth?.days)
+      : 0
 
     return {
       impressions: overviewForPage.impressions,
@@ -562,7 +613,7 @@ function App() {
       followerGrowthDays,
       likes: overviewForPage.likes,
     }
-  }, [overviewForPage, platformPosts, allSeriesByPost])
+  }, [overviewForPage, xFollowerGrowth])
 
   const displayedPosts = useMemo(() => {
     if (activePlatform !== 'linkedin' || !linkedinCardMetrics.topPostId) {
@@ -1305,7 +1356,7 @@ function App() {
             </article>
             <article className="metric-card">
               <h2>Follower Growth</h2>
-              <p>+{formatNumber(xCardMetrics.followerGrowth)}</p>
+              <p>{xCardMetrics.followerGrowth >= 0 ? '+' : ''}{formatNumber(xCardMetrics.followerGrowth)}</p>
               <small className="metric-subtext">
                 {xCardMetrics.followerGrowthDays > 0
                   ? `Last ${xCardMetrics.followerGrowthDays} days`
