@@ -36,6 +36,47 @@ function calculateEngagementRate(totalEngagements, impressions) {
 	return Number(((Number(totalEngagements) / safeImpressions) * 100).toFixed(2));
 }
 
+const barcelonaDayFormatter = new Intl.DateTimeFormat('en-CA', {
+	timeZone: 'Europe/Madrid',
+	year: 'numeric',
+	month: '2-digit',
+	day: '2-digit',
+});
+
+function getSnapshotDay(snapshotDate) {
+	return barcelonaDayFormatter.format(new Date(snapshotDate));
+}
+
+function buildDailyTimeseries(snapshots) {
+	const latestSnapshotByDay = new Map();
+
+	for (const snapshot of snapshots) {
+		latestSnapshotByDay.set(getSnapshotDay(snapshot.collectedAt), snapshot);
+	}
+
+	return Array.from(latestSnapshotByDay.values()).map((snapshot) => ({
+		totalEngagements: calculateXTotalEngagements({
+			likes: snapshot.likesCount,
+			replies: snapshot.commentsCount,
+			reposts: snapshot.sharesCount,
+		}),
+		engagementRate: calculateEngagementRate(
+			calculateXTotalEngagements({
+				likes: snapshot.likesCount,
+				replies: snapshot.commentsCount,
+				reposts: snapshot.sharesCount,
+			}),
+			snapshot.impressionsCount
+		),
+		date: snapshot.collectedAt,
+		likes: snapshot.likesCount,
+		comments: snapshot.commentsCount,
+		impressions: snapshot.impressionsCount,
+		savesOrBookmarks: snapshot.savesOrBookmarksCount,
+		shares: snapshot.sharesCount,
+	}));
+}
+
 app.get('/health', (_req, res) => {
 	res.json({ status: 'ok' });
 });
@@ -59,29 +100,7 @@ app.get('/api/posts/:postId/timeseries', async (req, res) => {
 			.sort({ collectedAt: 1 })
 			.lean();
 
-		res.json(
-			snapshots.map((snapshot) => ({
-				totalEngagements: calculateXTotalEngagements({
-					likes: snapshot.likesCount,
-					replies: snapshot.commentsCount,
-					reposts: snapshot.sharesCount,
-				}),
-				engagementRate: calculateEngagementRate(
-					calculateXTotalEngagements({
-						likes: snapshot.likesCount,
-						replies: snapshot.commentsCount,
-						reposts: snapshot.sharesCount,
-					}),
-					snapshot.impressionsCount
-				),
-				date: snapshot.collectedAt,
-				likes: snapshot.likesCount,
-				comments: snapshot.commentsCount,
-				impressions: snapshot.impressionsCount,
-				savesOrBookmarks: snapshot.savesOrBookmarksCount,
-				shares: snapshot.sharesCount,
-			}))
-		);
+		res.json(buildDailyTimeseries(snapshots));
 	} catch (error) {
 		res.status(500).json({ error: 'Failed to fetch time series data' });
 	}
