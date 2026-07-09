@@ -1218,6 +1218,7 @@ function App() {
                   Narrative: <strong>{tweet.topics[0] ?? 'Unclassified'}</strong>
                 </p>
                 <div className="compact-post-stats">
+                  <span>{formatNumber(tweet.engagement.impressions)} views</span>
                   <span>{formatNumber(tweet.engagement.likes)} likes</span>
                   <span>{formatNumber(tweet.engagement.retweets)} reposts</span>
                   <span>{formatNumber(tweet.engagement.replies)} replies</span>
@@ -1282,6 +1283,7 @@ function App() {
                       Narrative: <strong>{tweet.topics[0] ?? 'Unclassified'}</strong>
                     </p>
                     <div className="compact-post-stats">
+                      <span>{formatNumber(tweet.engagement.impressions)} views</span>
                       <span>{formatNumber(tweet.engagement.likes)} likes</span>
                       <span>{formatNumber(tweet.engagement.retweets)} reposts</span>
                       <span>{formatNumber(tweet.engagement.replies)} replies</span>
