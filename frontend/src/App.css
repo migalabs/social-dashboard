@@ -711,6 +711,12 @@ tr.is-top-post {
   border-color: var(--border);
 }
 
+:root[data-theme='light'] .compact-post-card,
+:root[data-theme='light'] .research-tweet-card,
+:root[data-theme='light'] .insights-post-item {
+  border-color: #a8b1bf;
+}
+
 :root[data-theme='light'] .hero-panel {
   background: transparent;
   border-color: transparent;
@@ -766,9 +772,19 @@ tr.is-top-post {
 
 :root[data-theme='light'] th,
 :root[data-theme='light'] td,
-:root[data-theme='light'] .compact-post-card,
 :root[data-theme='light'] .pagination-button {
   border-color: var(--border);
+}
+
+:root[data-theme='light'] .post-panel .compact-post-card,
+:root[data-theme='light'] .post-panel .compact-post-card.is-top-post-card {
+  border-color: #a8b1bf;
+}
+
+:root[data-theme='light'] .post-panel .compact-post-card:hover,
+:root[data-theme='light'] .post-panel .compact-post-card:focus-visible,
+:root[data-theme='light'] .post-panel .compact-post-card.is-selected {
+  border-color: rgba(224, 93, 56, 0.85);
 }
 
 :root[data-theme='light'] .pagination-button {
