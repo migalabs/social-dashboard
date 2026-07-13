@@ -3,8 +3,9 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 
 const connectToDatabase = require('../config/db');
+const Post = require('../models/Post');
 const TwitterResearchSnapshot = require('../models/TwitterResearchSnapshot');
-const { getCryptoTrendAnalysis } = require('../services/twitterResearch');
+const { buildContentGapRecommendations, getCryptoTrendAnalysis } = require('../services/twitterResearch');
 
 async function run() {
   const listId = String(process.env.TWITTER_RESEARCH_LIST_ID || '').trim();
@@ -17,6 +18,21 @@ async function run() {
   await connectToDatabase();
 
   const result = await getCryptoTrendAnalysis({ listId });
+  const ownPosts = await Post.find({
+    publishedAt: {
+      $gte: new Date(result.window.from),
+      $lte: new Date(result.window.to),
+    },
+    content: { $not: /^RT\s+@/i },
+  })
+    .select({ content: 1, platform: 1, publishedAt: 1 })
+    .lean();
+  const contentGapRecommendations = buildContentGapRecommendations({
+    topicBreakdown: result.topicBreakdown,
+    topicTweets: result.topicTweets,
+    ownPosts,
+    limit: 6,
+  });
 
   await TwitterResearchSnapshot.create({
     listId: result.listId,
@@ -30,6 +46,7 @@ async function run() {
     dailyVolume: result.dailyVolume,
     mostEngagedTweets: result.mostEngagedTweets,
     topicTweets: result.topicTweets,
+    contentGapRecommendations,
     generatedAt: new Date(),
   });
 

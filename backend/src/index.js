@@ -13,7 +13,7 @@ const TwitterAccountSnapshot = require('./models/TwitterAccountSnapshot');
 const LinkedInMonthlySnapshot = require('./models/LinkedInMonthlySnapshot');
 const { twitterApiGet } = require('./services/twitterApi');
 const { syncTwitterHistory } = require('./services/twitterSync');
-const { getCryptoTrendAnalysis } = require('./services/twitterResearch');
+const { buildContentGapRecommendations, getCryptoTrendAnalysis } = require('./services/twitterResearch');
 const { runLinkedInRetentionJob } = require('./services/linkedinRetention');
 
 const app = express();
@@ -224,29 +224,62 @@ app.get('/api/twitter/research/trends', async (req, res) => {
 			.lean();
 		const latestHasTopicTweets =
 			Array.isArray(latestSnapshot?.topicTweets) && latestSnapshot.topicTweets.length > 0;
+		const latestHasContentGapRecommendations = Array.isArray(
+			latestSnapshot?.contentGapRecommendations
+		);
+		const latestHasContentGapKeywords =
+			!latestHasContentGapRecommendations ||
+			latestSnapshot.contentGapRecommendations.length === 0 ||
+			Array.isArray(latestSnapshot.contentGapRecommendations[0]?.missingKeywords);
 
-		if (latestSnapshot && latestHasTopicTweets && !forceRefresh) {
+		if (
+			latestSnapshot &&
+			latestHasTopicTweets &&
+			latestHasContentGapRecommendations &&
+			latestHasContentGapKeywords &&
+			!forceRefresh
+		) {
 			return res.json(latestSnapshot);
 		}
 
 		const windowDays = Number(req.query.windowDays || 7);
 		const topLimit = Number(req.query.topLimit || 12);
 		const result = await getCryptoTrendAnalysis({ listId, windowDays, topLimit });
-		await TwitterResearchSnapshot.create({
-			listId: result.listId,
-			queryUsed: result.queryUsed,
-			window: result.window,
-			fetchedTweets: result.fetchedTweets,
-			analyzedTweets: result.analyzedTweets,
-			topHashtags: result.topHashtags,
-			topKeywords: result.topKeywords,
+		const ownPosts = await Post.find({
+			publishedAt: {
+				$gte: new Date(result.window.from),
+				$lte: new Date(result.window.to),
+			},
+			content: { $not: /^RT\s+@/i },
+		})
+			.select({ content: 1, platform: 1, publishedAt: 1 })
+			.lean();
+		const contentGapRecommendations = buildContentGapRecommendations({
 			topicBreakdown: result.topicBreakdown,
-			dailyVolume: result.dailyVolume,
-			mostEngagedTweets: result.mostEngagedTweets,
 			topicTweets: result.topicTweets,
+			ownPosts,
+			limit: Number(req.query.gapLimit || 6),
+		});
+		const responsePayload = {
+			...result,
+			contentGapRecommendations,
+		};
+		await TwitterResearchSnapshot.create({
+			listId: responsePayload.listId,
+			queryUsed: responsePayload.queryUsed,
+			window: responsePayload.window,
+			fetchedTweets: responsePayload.fetchedTweets,
+			analyzedTweets: responsePayload.analyzedTweets,
+			topHashtags: responsePayload.topHashtags,
+			topKeywords: responsePayload.topKeywords,
+			topicBreakdown: responsePayload.topicBreakdown,
+			dailyVolume: responsePayload.dailyVolume,
+			mostEngagedTweets: responsePayload.mostEngagedTweets,
+			topicTweets: responsePayload.topicTweets,
+			contentGapRecommendations: responsePayload.contentGapRecommendations,
 			generatedAt: new Date(),
 		});
-		return res.json(result);
+		return res.json(responsePayload);
 	} catch (error) {
 		return res.status(error.status || 500).json({
 			error: 'Failed to analyze Twitter research trends',

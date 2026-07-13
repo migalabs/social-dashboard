@@ -90,6 +90,21 @@ type TopicTweetBucket = {
   tweets: TrendTweet[]
 }
 
+type ContentGapRecommendation = {
+  topic: string
+  status: 'uncovered' | 'under-covered' | 'covered'
+  priorityScore: number
+  trendScore: number
+  externalMentions: number
+  avgEngagementScore: number
+  ownPostsCount: number
+  coverageRatio: number
+  latestCoveredAt: string | null
+  coveredPlatforms: string[]
+  missingKeywords: TrendKeywordCount[]
+  recommendation: string
+}
+
 type ResearchTrendsResponse = {
   listId: string
   queryUsed?: unknown
@@ -102,6 +117,7 @@ type ResearchTrendsResponse = {
   topKeywords: TrendKeywordCount[]
   topicBreakdown: TrendTopic[]
   topicTweets: TopicTweetBucket[]
+  contentGapRecommendations: ContentGapRecommendation[]
   dailyVolume: TrendDailyVolume[]
   mostEngagedTweets: TrendTweet[]
   window: {
@@ -178,6 +194,32 @@ function normalizeResearchData(payload: Partial<ResearchTrendsResponse> | null):
             : [],
         }))
       : [],
+    contentGapRecommendations: Array.isArray(payload.contentGapRecommendations)
+      ? payload.contentGapRecommendations.map((item) => ({
+          topic: String(item?.topic ?? ''),
+          status:
+            item?.status === 'under-covered' || item?.status === 'covered'
+              ? item.status
+              : 'uncovered',
+          priorityScore: Number(item?.priorityScore ?? 0),
+          trendScore: Number(item?.trendScore ?? 0),
+          externalMentions: Number(item?.externalMentions ?? 0),
+          avgEngagementScore: Number(item?.avgEngagementScore ?? 0),
+          ownPostsCount: Number(item?.ownPostsCount ?? 0),
+          coverageRatio: Number(item?.coverageRatio ?? 0),
+          latestCoveredAt: item?.latestCoveredAt ? String(item.latestCoveredAt) : null,
+          coveredPlatforms: Array.isArray(item?.coveredPlatforms)
+            ? item.coveredPlatforms.map((platform) => String(platform))
+            : [],
+          missingKeywords: Array.isArray(item?.missingKeywords)
+            ? item.missingKeywords.map((keywordEntry) => ({
+                keyword: String(keywordEntry?.keyword ?? ''),
+                count: Number(keywordEntry?.count ?? 0),
+              }))
+            : [],
+          recommendation: String(item?.recommendation ?? ''),
+        }))
+      : [],
     dailyVolume: Array.isArray(payload.dailyVolume) ? payload.dailyVolume : [],
     mostEngagedTweets: Array.isArray(payload.mostEngagedTweets)
       ? payload.mostEngagedTweets.map((tweet) => normalizeTrendTweet(tweet))
@@ -219,6 +261,7 @@ function App() {
   const [researchData, setResearchData] = useState<ResearchTrendsResponse | null>(null)
   const [xFollowerGrowth, setXFollowerGrowth] = useState<XFollowerGrowthResponse | null>(null)
   const [selectedResearchTopic, setSelectedResearchTopic] = useState('')
+  const [selectedContentGapTopic, setSelectedContentGapTopic] = useState('')
   const [researchLoading, setResearchLoading] = useState(false)
   const [researchError, setResearchError] = useState('')
   const analyticsPanelRef = useRef<HTMLDivElement | null>(null)
@@ -314,6 +357,23 @@ function App() {
 
     setSelectedResearchTopic((previous) =>
       previous && availableTopics.includes(previous) ? previous : ''
+    )
+  }, [researchData])
+
+  useEffect(() => {
+    if (!researchData) {
+      setSelectedContentGapTopic('')
+      return
+    }
+
+    const availableGapTopics = researchData.contentGapRecommendations.map((entry) => entry.topic)
+    if (availableGapTopics.length === 0) {
+      setSelectedContentGapTopic('')
+      return
+    }
+
+    setSelectedContentGapTopic((previous) =>
+      previous && availableGapTopics.includes(previous) ? previous : ''
     )
   }, [researchData])
 
@@ -1071,11 +1131,14 @@ function App() {
   const renderResearch = () => {
     const trendRows = researchData?.topicBreakdown ?? []
     const topicTweets = researchData?.topicTweets ?? []
+    const contentGapRecommendations = researchData?.contentGapRecommendations ?? []
     const dailyVolumeRows = researchData?.dailyVolume ?? []
     const engagedTweets = researchData?.mostEngagedTweets ?? []
     const selectedTopicSummary = trendRows.find((entry) => entry.topic === selectedResearchTopic) ?? null
     const selectedTopicTweets =
       topicTweets.find((entry) => entry.topic === selectedResearchTopic)?.tweets ?? []
+    const selectedContentGap =
+      contentGapRecommendations.find((entry) => entry.topic === selectedContentGapTopic) ?? null
 
     return (
       <>
@@ -1201,6 +1264,46 @@ function App() {
           </article>
         </section>
 
+        <section>
+          <article className="panel">
+            <div className="panel-title-row">
+              <h2>Content Gap Recommendations</h2>
+              <span>Topics missing from our recent posts</span>
+            </div>
+            <div className="research-topic-opportunities" role="list" aria-label="Content gap recommendations">
+              {contentGapRecommendations.map((entry, index) => (
+                <button
+                  key={`${entry.topic}-${index}`}
+                  type="button"
+                  className={`research-topic-opportunity research-topic-button ${selectedContentGapTopic === entry.topic ? 'is-active' : ''}`}
+                  role="listitem"
+                  onClick={() => {
+                    setSelectedContentGapTopic(entry.topic)
+                    setSelectedResearchTopic('')
+                  }}
+                >
+                  <div className="panel-title-row">
+                    <h2>
+                      #{index + 1} {entry.topic}
+                    </h2>
+                    <span>{entry.status === 'uncovered' ? 'Uncovered' : 'Under-covered'}</span>
+                  </div>
+                  <div className="compact-post-stats">
+                    <span>{entry.trendScore.toFixed(2)} trend score</span>
+                    <span>{formatNumber(entry.externalMentions)} external mentions</span>
+                    <span>{formatNumber(entry.ownPostsCount)} own posts</span>
+                    <span>{entry.avgEngagementScore.toFixed(2)} avg engagement</span>
+                  </div>
+                  <p className="metric-subtext">{entry.recommendation}</p>
+                </button>
+              ))}
+              {contentGapRecommendations.length === 0 && (
+                <p className="selected-content">No content gaps found for the current trend window.</p>
+              )}
+            </div>
+          </article>
+        </section>
+
         <section className="panel">
           <div className="panel-title-row">
             <h2>Most Engaged Tweets</h2>
@@ -1302,6 +1405,51 @@ function App() {
                   <p className="selected-content">
                     No tweets found for {selectedResearchTopic} in the current analysis window.
                   </p>
+                )}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {selectedContentGap && (
+          <div
+            className="research-modal-overlay"
+            role="presentation"
+            onClick={() => setSelectedContentGapTopic('')}
+          >
+            <section
+              className="research-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Keyword gap for ${selectedContentGap.topic}`}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="panel-title-row">
+                <h2>Keyword Gap for {selectedContentGap.topic}</h2>
+                <span>{selectedContentGap.missingKeywords.length} missing keywords</span>
+              </div>
+              <button
+                type="button"
+                className="research-modal-close"
+                onClick={() => setSelectedContentGapTopic('')}
+                aria-label="Close keyword gap details"
+              >
+                Close
+              </button>
+              <p className="metric-subtext">{selectedContentGap.recommendation}</p>
+              <div className="compact-post-stats">
+                <span>{selectedContentGap.trendScore.toFixed(2)} trend score</span>
+                <span>{formatNumber(selectedContentGap.externalMentions)} external mentions</span>
+                <span>{formatNumber(selectedContentGap.ownPostsCount)} own posts</span>
+              </div>
+              <div className="research-chip-list research-modal-list" role="list" aria-label="Missing keywords">
+                {selectedContentGap.missingKeywords.map((keywordEntry) => (
+                  <span key={`${selectedContentGap.topic}-${keywordEntry.keyword}`} className="research-chip" role="listitem">
+                    {keywordEntry.keyword} ({formatNumber(keywordEntry.count)})
+                  </span>
+                ))}
+                {selectedContentGap.missingKeywords.length === 0 && (
+                  <p className="selected-content">No clear keyword gaps detected for this topic in the current window.</p>
                 )}
               </div>
             </section>

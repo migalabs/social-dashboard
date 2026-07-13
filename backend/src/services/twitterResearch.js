@@ -501,6 +501,127 @@ function classifyTopics(tokens, hashtags, textLower) {
   return topics;
 }
 
+function inferCryptoTopicsFromText(text) {
+  const normalizedText = String(text || '').trim();
+  if (!normalizedText) {
+    return [];
+  }
+
+  const hashtags = extractHashtags(normalizedText);
+  const tokens = tokenize(normalizedText);
+  const textLower = ` ${normalizedText.toLowerCase()} `;
+  return Array.from(new Set(classifyTopics(tokens, hashtags, textLower)));
+}
+
+function buildTokenCountMapFromTexts(texts = []) {
+  const tokenCounts = new Map();
+
+  for (const text of texts) {
+    const uniqueTokens = Array.from(new Set(tokenize(text)));
+    for (const token of uniqueTokens) {
+      tokenCounts.set(token, (tokenCounts.get(token) || 0) + 1);
+    }
+  }
+
+  return tokenCounts;
+}
+
+function buildContentGapRecommendations({ topicBreakdown = [], topicTweets = [], ownPosts = [], limit = 6 } = {}) {
+  const ownTopicStats = new Map();
+  const ownTopicTokenMaps = new Map();
+  const ownGlobalTokenSet = new Set();
+
+  for (const post of ownPosts) {
+    const content = String(post?.content || '');
+    const topics = inferCryptoTopicsFromText(content);
+    const postTokens = Array.from(new Set(tokenize(content)));
+    postTokens.forEach((token) => ownGlobalTokenSet.add(token));
+
+    if (topics.length === 0) {
+      continue;
+    }
+
+    for (const topic of topics) {
+      const current = ownTopicStats.get(topic) || {
+        ownPostsCount: 0,
+        latestCoveredAt: null,
+        platforms: new Set(),
+      };
+      current.ownPostsCount += 1;
+      if (post?.platform) {
+        current.platforms.add(post.platform);
+      }
+      const publishedAt = post?.publishedAt ? new Date(post.publishedAt) : null;
+      if (publishedAt && !Number.isNaN(publishedAt.getTime())) {
+        if (!current.latestCoveredAt || publishedAt > current.latestCoveredAt) {
+          current.latestCoveredAt = publishedAt;
+        }
+      }
+      ownTopicStats.set(topic, current);
+
+      const topicTokens = ownTopicTokenMaps.get(topic) || new Map();
+      postTokens.forEach((token) => {
+        topicTokens.set(token, (topicTokens.get(token) || 0) + 1);
+      });
+      ownTopicTokenMaps.set(topic, topicTokens);
+    }
+  }
+
+  const trendingTopicTokenMaps = new Map(
+    topicTweets.map((entry) => [
+      entry.topic,
+      buildTokenCountMapFromTexts((entry.tweets || []).map((tweet) => String(tweet.text || ''))),
+    ])
+  );
+
+  return topicBreakdown
+    .map((topic) => {
+      const ownCoverage = ownTopicStats.get(topic.topic);
+      const ownPostsCount = ownCoverage?.ownPostsCount || 0;
+      const ownTopicTokens = ownTopicTokenMaps.get(topic.topic) || new Map();
+      const trendingTokens = trendingTopicTokenMaps.get(topic.topic) || new Map();
+
+      const missingKeywords = Array.from(trendingTokens.entries())
+        .filter(([token]) => !ownTopicTokens.has(token) && !ownGlobalTokenSet.has(token))
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, 12)
+        .map(([keyword, count]) => ({ keyword, count }));
+
+      const coverageRatio = topic.mentionCount > 0 ? ownPostsCount / topic.mentionCount : 0;
+      const status = ownPostsCount === 0 ? 'uncovered' : ownPostsCount <= 1 ? 'under-covered' : 'covered';
+
+      const priorityScore =
+        status === 'uncovered'
+          ? topic.trendScore * 1.35
+          : status === 'under-covered'
+            ? topic.trendScore * 0.8
+            : topic.trendScore * 0.1;
+
+      return {
+        topic: topic.topic,
+        status,
+        priorityScore: Number(priorityScore.toFixed(2)),
+        trendScore: Number(topic.trendScore || 0),
+        externalMentions: Number(topic.mentionCount || 0),
+        avgEngagementScore: Number(topic.avgEngagementScore || 0),
+        ownPostsCount,
+        coverageRatio: Number(coverageRatio.toFixed(4)),
+        latestCoveredAt: ownCoverage?.latestCoveredAt ? ownCoverage.latestCoveredAt.toISOString() : null,
+        coveredPlatforms: ownCoverage ? Array.from(ownCoverage.platforms.values()) : [],
+        missingKeywords,
+        recommendation:
+          status === 'uncovered'
+            ? `No recent posts detected on ${topic.topic}. Prioritize a post in the next content cycle.`
+            : status === 'under-covered'
+              ? `${topic.topic} is trending but lightly covered. Consider publishing follow-up content.`
+              : `${topic.topic} is already represented in your recent content mix.`,
+      };
+    })
+    .filter((entry) => entry.status !== 'covered')
+    .sort((a, b) => b.priorityScore - a.priorityScore || b.externalMentions - a.externalMentions)
+    .slice(0, Math.max(1, Number(limit) || 6));
+}
+
 async function fetchResearchListTweets(listIdInput) {
   const listId = normalizeListId(listIdInput);
   if (!listId) {
@@ -728,6 +849,8 @@ async function getCryptoTrendAnalysis({ listId, windowDays = DEFAULT_WINDOW_DAYS
 
 module.exports = {
   analyzeTweetsForCryptoTrends,
+  buildContentGapRecommendations,
   fetchResearchListTweets,
   getCryptoTrendAnalysis,
+  inferCryptoTopicsFromText,
 };

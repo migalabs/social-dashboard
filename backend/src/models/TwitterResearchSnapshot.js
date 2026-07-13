@@ -66,6 +66,24 @@ const researchTopicTweetsSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const researchContentGapSchema = new mongoose.Schema(
+  {
+    topic: { type: String, required: true },
+    status: { type: String, required: true, enum: ['uncovered', 'under-covered', 'covered'] },
+    priorityScore: { type: Number, required: true, default: 0 },
+    trendScore: { type: Number, required: true, default: 0 },
+    externalMentions: { type: Number, required: true, default: 0 },
+    avgEngagementScore: { type: Number, required: true, default: 0 },
+    ownPostsCount: { type: Number, required: true, default: 0 },
+    coverageRatio: { type: Number, required: true, default: 0 },
+    latestCoveredAt: { type: Date, default: null },
+    coveredPlatforms: { type: [String], default: [] },
+    missingKeywords: { type: [researchKeywordSchema], default: [] },
+    recommendation: { type: String, required: true, default: '' },
+  },
+  { _id: false }
+);
+
 const twitterResearchSnapshotSchema = new mongoose.Schema(
   {
     listId: {
@@ -114,6 +132,10 @@ const twitterResearchSnapshotSchema = new mongoose.Schema(
     },
     topicTweets: {
       type: [researchTopicTweetsSchema],
+      default: [],
+    },
+    contentGapRecommendations: {
+      type: [researchContentGapSchema],
       default: [],
     },
     generatedAt: {
